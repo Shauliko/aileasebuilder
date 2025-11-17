@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { markdownToHtml } from "../utils/markdownToHtml";
+import { createPdfFromHtml } from "../utils/createPdf";
+import { Document, Packer, Paragraph } from "docx";
 
 export async function POST(req: Request) {
   try {
@@ -13,14 +16,7 @@ export async function POST(req: Request) {
 You are an expert US real estate attorney specializing in residential leases.
 Generate a state-compliant residential lease agreement based on the provided input.
 
-Return the result in VALID JSON ONLY.
-
-Mandatory Requirements:
-- Follow the laws of the selected state.
-- Use precise legal language.
-- Include required disclosures for that state.
-- Include all fields requested by the user.
-- Avoid ambiguous language.
+Return the result in valid JSON only.
 
 INPUT:
 ${JSON.stringify(body, null, 2)}
@@ -33,16 +29,45 @@ OUTPUT FORMAT (JSON ONLY):
 }
 `;
 
+    // AI response
     const completion = await client.responses.create({
-      model: "gpt-5.1",
+      model: "gpt-4.1", // more reliable access
       input: prompt
     });
 
-    const text = completion.output_text; // raw model output
+    const jsonText = completion.output_text;
+    const parsed = JSON.parse(jsonText);
 
-    const parsed = JSON.parse(text); // convert JSON string → JS object
+    const leaseMd = parsed.lease_markdown || "";
+    const checklistMd = parsed.checklist_markdown || "";
 
-    return NextResponse.json(parsed);
+    // Convert Markdown → HTML
+    const leaseHtml = await markdownToHtml(leaseMd);
+    const checklistHtml = await markdownToHtml(checklistMd);
+
+    // Generate PDF
+    const leasePdf = await createPdfFromHtml(leaseHtml);
+
+    // Generate DOCX
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph(leaseMd)
+          ]
+        }
+      ]
+    });
+
+    const docxBuffer = await Packer.toBuffer(doc);
+
+    // Return files as base64 strings
+    return NextResponse.json({
+      lease_markdown: leaseMd,
+      lease_html: leaseHtml,
+      lease_pdf_base64: leasePdf.toString("base64"),
+      lease_docx_base64: docxBuffer.toString("base64")
+    });
 
   } catch (error: any) {
     console.error("AI ERROR:", error);
