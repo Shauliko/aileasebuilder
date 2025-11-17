@@ -23,10 +23,11 @@ export default function GenerateLeasePage() {
     smoking: "no",
     lateFees: "no",
     deposit: "",
-    extraClauses: ""
+    extraClauses: "",
+    languages: []
   });
 
-  const updateField = (key: keyof typeof form, value: string) => {
+  const updateField = (key: keyof typeof form, value: any) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
@@ -264,6 +265,66 @@ export default function GenerateLeasePage() {
               className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 min-h-[96px] placeholder-gray-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
             />
           </section>
+
+          {/* Section 5: Language Options */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Language Options
+            </h2>
+
+            {/* Checkbox */}
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                checked={form.languages && form.languages.length > 0}
+                onChange={(e) => {
+                  if (!e.target.checked) {
+                    updateField("languages", []);
+                  } else {
+                    updateField("languages", ["Spanish"]); // default
+                  }
+                }}
+                className="h-4 w-4 rounded bg-[#050816] border-white/20"
+              />
+              <label className="text-gray-300">
+                Generate lease in additional languages
+              </label>
+            </div>
+
+            {/* Dropdown (only shown if checkbox is active) */}
+            {form.languages && form.languages.length > 0 && (
+              <div className="space-y-4">
+                <label className="block text-sm text-gray-300">
+                Select Languages (choose one or more)
+                </label>
+
+                <select
+                  multiple
+                  value={form.languages}
+                  onChange={(e) => {
+                    const selected = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value
+                    );
+                    updateField("languages", selected);
+                  }}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 h-40"
+                >
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="Portuguese">Portuguese</option>
+                  <option value="Chinese (Simplified)">Chinese (Simplified)</option>
+                  <option value="Arabic">Arabic</option>
+                  <option value="Hindi">Hindi</option>
+                </select>
+
+                <p className="text-xs text-gray-400">
+                  Tip: Hold CTRL (Windows) or CMD (Mac) to select multiple.
+                </p>
+              </div>
+            )}
+          </section>
+
 
           {/* Submit */}
           <div className="pt-2">

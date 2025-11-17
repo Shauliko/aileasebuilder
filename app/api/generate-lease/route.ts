@@ -4,174 +4,182 @@ import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
 import { Document, Packer, Paragraph } from "docx";
 
+// -----------------------------------------------------------
+// SAFE JSON PARSER — strips ```json fences & extracts JSON only
+// -----------------------------------------------------------
+function safeJsonParse(raw: string) {
+  if (!raw) return {};
+
+  // Remove ```json and ``` if present
+  let cleaned = raw
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  // Extract ONLY the JSON object
+  const first = cleaned.indexOf("{");
+  const last = cleaned.lastIndexOf("}");
+
+  if (first !== -1 && last !== -1) {
+    cleaned = cleaned.substring(first, last + 1);
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.error("safeJsonParse failed:", raw);
+    return {};
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    const { languages = [] } = body;
 
-    // ===========================
-    // 🔥 PREMIUM MULTI-PAGE PROMPT
-    // ===========================
-    const prompt = `
-You are an expert US real estate attorney who prepares legally compliant residential lease agreements for every US state.
-Your task is to generate a thorough, multi-page, professional residential lease agreement based strictly on the input provided.
+    // ========================================================
+    // 🔥 STEP 1 — GENERATE THE MAIN ENGLISH LEASE
+    // ========================================================
+    const mainPrompt = `
+You are an expert U.S. real estate attorney. Generate a complete, professional, legally compliant residential lease agreement.
 
-IMPORTANT REQUIREMENTS:
-- You MUST return valid JSON only (no markdown fences, no explanations).
-- The lease must be complete, detailed, and long (minimum 1,500 words, ideally 2,500–3,500).
-- Each clause must be written in full legal language — no summaries.
-- The lease MUST include all required state-specific clauses, disclosures, and notices.
-- Include all mandatory disclosures for the provided state (lead-based paint, mold, bed bugs, radon, etc.).
-- Tailor laws, notice periods, fees, grace periods, landlord rights, and remedies to the state.
+STRICT OUTPUT RULES:
+- Output only VALID JSON.
+- No comments, no markdown fences.
+- JSON must include:
+  "lease_markdown": "...",
+  "addendums_markdown": [],
+  "checklist_markdown": "..."
 
-LEASE STRUCTURE (do NOT omit):
-1. Introduction / Parties
-2. Property Description
-3. Lease Term
-4. Rent & Payment Rules
-5. Security Deposit Rules (state-specific)
-6. Utilities & Services
-7. Use of Premises
-8. Guest Policy
-9. Maintenance & Repairs
-10. Alterations
-11. Pets Policy
-12. Smoking Policy
-13. Parking
-14. Insurance Requirements
-15. Owner Entry
-16. Rules & Regulations
-17. Required State Disclosures
-18. Lead-Based Paint Disclosure (if pre-1978)
-19. Late Fees, Returned Payments, Penalties
-20. Subletting
-21. Governing Law
-22. Default & Remedies
-23. Abandonment
-24. Notices
-25. Joint & Several Liability
-26. Military Clause (if applicable)
-27. Additional Addendums
-28. Signatures
+Word count target: 1500–3500 words.
 
-INCLUDE:
-- Full lease text in Markdown
-- A list of addendums in Markdown array
-- A Move-in/Move-out Checklist in Markdown
-
-----------------------------------------
-INPUT DATA:
+INPUT:
 ${JSON.stringify(body, null, 2)}
-----------------------------------------
 
-OUTPUT FORMAT (STRICT JSON):
+OUTPUT FORMAT:
 {
-  "lease_markdown": "Full lease text as Markdown",
-  "addendums_markdown": ["Addendum 1...", "Addendum 2..."],
-  "checklist_markdown": "Checklist in Markdown"
+  "lease_markdown": "...",
+  "addendums_markdown": [],
+  "checklist_markdown": "..."
 }
 `;
 
-    // ===========================
-    // 🔥 CALL OPENAI
-    // ===========================
-    const completion = await client.responses.create({
-      model: "gpt-4o-mini", // temporarily use mini until quota fixed
-      input: prompt
+    const english = await client.responses.create({
+      model: "gpt-4.1",
+      input: mainPrompt
     });
 
-    console.log("FULL AI RAW:", JSON.stringify(completion, null, 2));
+    const englishText = english.output_text || "";
+    const parsed = safeJsonParse(englishText);
 
-    // ===========================
-    // 🔥 UNIVERSAL EXTRACTION LOGIC (TypeScript-safe)
-    // ===========================
-    let text = "";
+    const leaseMd = parsed.lease_markdown || "";
+    const checklistMd = parsed.checklist_markdown || "";
 
-    if (completion.output?.length) {
-      const first: any = completion.output[0];
-      const possibleText =
-        first?.content?.[0]?.text ||
-        first?.text ||
-        first?.output_text;
-
-      if (possibleText) text = possibleText;
-    }
-
-    // fallback: output_text
-    if (!text && completion.output_text) {
-      text = completion.output_text;
-    }
-
-   // fallback: chat-style responses (defensive)
-   if (!text) {
-     const maybeChoices: any = (completion as any)?.choices;
-
-     if (maybeChoices?.length > 0) {
-       const content = maybeChoices[0]?.message?.content;
-       if (content) text = content;
-    }
-  }
-
-
-    if (!text) {
-      console.error("AI EMPTY RESPONSE:", completion);
-      throw new Error("OpenAI returned no text.");
-    }
-
-    console.log("AI EXTRACTED TEXT:", text);
-
-    // ===========================
-    // 🔥 JSON PARSE WITH FALLBACK
-    // ===========================
-    let parsed: any = null;
-
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.warn("JSON parse failed — treating raw text as lease_markdown.");
-      parsed = {
-        lease_markdown: text,
-        addendums_markdown: [],
-        checklist_markdown: ""
-      };
-    }
-
-    let leaseMd = parsed.lease_markdown || "";
-    let checklistMd = parsed.checklist_markdown || "";
-
-    // last fallback
-    if (!leaseMd && text.trim().length > 0) {
-      leaseMd = text;
-    }
-
-    // ===========================
-    // 🔥 CONVERSION: MD → HTML → PDF → DOCX
-    // ===========================
+    // Convert English MD → HTML
     const leaseHtml = await markdownToHtml(leaseMd);
 
+    // Create English PDF
     const leasePdf = await createPdfFromHtml(leaseHtml);
 
+    // Create English DOCX
     const doc = new Document({
       sections: [{ children: [new Paragraph(leaseMd)] }]
     });
-
     const docxBuffer = await Packer.toBuffer(doc);
 
-    // ===========================
-    // 🔥 SEND FINAL JSON RESULT
-    // ===========================
+    // ========================================================
+    // 🔥 STEP 2 — TRANSLATE INTO MULTIPLE LANGUAGES
+    // ========================================================
+    let translated: any[] = [];
+
+    const unicodeLanguages = [
+      "Arabic",
+      "Chinese (Simplified)",
+      "Chinese (Traditional)",
+      "Hebrew",
+      "Hindi",
+      "Japanese",
+      "Korean",
+      "Thai"
+    ];
+
+    for (const lang of languages) {
+      const translationPrompt = `
+Translate the following residential lease into "${lang}" while preserving:
+
+- Legal accuracy
+- Structure & formatting
+- Headings, lists, sections
+
+Return ONLY valid JSON:
+{
+  "language": "${lang}",
+  "markdown": "..."
+}
+
+LEASE TO TRANSLATE:
+${leaseMd}
+`;
+
+      const translation = await client.responses.create({
+        model: "gpt-4.1",
+        input: translationPrompt
+      });
+
+      const tText = translation.output_text || "";
+      const tJson = safeJsonParse(tText);
+
+      const translatedMd = tJson.markdown || "";
+
+      // Convert MD → HTML
+      const tHtml = await markdownToHtml(translatedMd);
+
+      // ---------------------------------------------
+      // PDF GENERATION — ONLY FOR LATIN LANGUAGES
+      // ---------------------------------------------
+      let tPdfBase64: string | null = null;
+
+      if (!unicodeLanguages.includes(lang)) {
+        try {
+          const tPdf = await createPdfFromHtml(tHtml);
+          tPdfBase64 = tPdf.toString("base64");
+        } catch (err) {
+          console.warn(`PDF generation failed for ${lang}, skipping.`);
+        }
+      }
+
+      // DOCX — always generates properly
+      const tDoc = new Document({
+        sections: [{ children: [new Paragraph(translatedMd)] }]
+      });
+      const tDocBuf = await Packer.toBuffer(tDoc);
+
+      translated.push({
+        language: lang,
+        markdown: translatedMd,
+        html: tHtml,
+        pdf_base64: tPdfBase64, // null for Unicode languages
+        docx_base64: tDocBuf.toString("base64")
+      });
+    }
+
+    // ========================================================
+    // 🔥 STEP 3 — RETURN ALL DATA
+    // ========================================================
     return NextResponse.json({
+      languages,
       lease_markdown: leaseMd,
       lease_html: leaseHtml,
+      checklist_markdown: checklistMd,
+      translated,
       lease_pdf_base64: leasePdf.toString("base64"),
       lease_docx_base64: docxBuffer.toString("base64")
     });
 
   } catch (error: any) {
-    console.error("AI ERROR:", error);
+    console.error("API ERROR:", error);
     return NextResponse.json(
       { error: "Lease generation failed", details: error.message },
       { status: 500 }

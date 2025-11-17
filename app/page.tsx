@@ -2,7 +2,7 @@
 
 export default function HomePage() {
   return (
-    <div className="relative -mx-6 -mt-10 min-h-[calc(100vh-4rem)] bg-[#050816] text-white">
+    <div className="relative min-h-[100vh] bg-[#050816] text-white overflow-hidden">
       {/* GLOW BACKGROUND */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-40 -left-40 h-72 w-72 rounded-full bg-blue-600/30 blur-3xl" />
@@ -11,7 +11,7 @@ export default function HomePage() {
       </div>
 
       {/* CONTENT WRAPPER */}
-      <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-24">
+      <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-24">
         {/* HERO */}
         <section className="text-center">
           <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1 text-xs font-medium text-gray-200">
@@ -80,7 +80,7 @@ export default function HomePage() {
               </ul>
             </div>
 
-            {/* Fake preview / UI mock */}
+            {/* Fake preview */}
             <div className="flex-1">
               <div className="rounded-xl border border-white/10 bg-[#050816] p-4 text-left text-xs text-gray-200">
                 <div className="flex items-center gap-2 mb-4">
@@ -93,7 +93,7 @@ export default function HomePage() {
                 </p>
                 <p className="text-sm font-semibold mb-2">Residential Lease Agreement</p>
                 <p className="text-xs text-gray-300 mb-1">
-                  This Residential Lease Agreement (&quot;Agreement&quot;) is entered into on{" "}
+                  This Residential Lease Agreement ("Agreement") is entered into on{" "}
                   <span className="text-cyan-300">August 1, 2025</span> between{" "}
                   <span className="text-cyan-300">Landlord</span> and{" "}
                   <span className="text-cyan-300">Tenant</span> for the property located at{" "}
@@ -115,7 +115,7 @@ export default function HomePage() {
           </h2>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {[
+            {[ 
               {
                 title: "State-aware engine",
                 desc: "We take your state selection and adjust clauses, notice periods and disclosures accordingly.",
@@ -127,7 +127,7 @@ export default function HomePage() {
               {
                 title: "Ready-to-sign output",
                 desc: "Get clean PDF & DOCX files ready for signature or your favorite e-signing tool.",
-              },
+              }
             ].map((item) => (
               <div
                 key={item.title}
