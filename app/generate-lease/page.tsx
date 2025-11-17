@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function GenerateLeasePage() {
   const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     state: "",
     propertyType: "",
@@ -31,8 +32,6 @@ export default function GenerateLeasePage() {
       });
 
       const data = await res.json();
-      console.log("AI RESPONSE:", data);
-
       localStorage.setItem("lease-result", JSON.stringify(data));
       window.location.href = "/download";
 
@@ -45,18 +44,24 @@ export default function GenerateLeasePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-2xl mx-auto py-16 px-6">
-        <h1 className="text-4xl font-semibold text-blue-600 mb-8">
-          AI Lease Builder
+    <div className="flex justify-center">
+      <div className="bg-white shadow-lg rounded-xl p-10 w-full max-w-2xl border border-gray-200">
+        
+        <h1 className="text-3xl font-bold text-gray-900 mb-6 text-center">
+          Generate Your Lease
         </h1>
+        <p className="text-gray-600 text-center mb-10">
+          Fill in the details below and let AI create a complete,
+          state-compliant residential lease agreement for you.
+        </p>
 
         <div className="space-y-6">
+
           {/* State */}
           <div>
-            <label className="block mb-2 text-sm font-medium">State</label>
+            <label className="block mb-2 font-medium">State</label>
             <select
-              className="border rounded-md w-full p-3"
+              className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
               onChange={(e) => updateField("state", e.target.value)}
             >
               <option value="">Select a state</option>
@@ -72,29 +77,29 @@ export default function GenerateLeasePage() {
 
           {/* Property Type */}
           <div>
-            <label className="block mb-2 text-sm font-medium">Property Type</label>
+            <label className="block mb-2 font-medium">Property Type</label>
             <input
-              className="border rounded-md w-full p-3"
+              className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
               placeholder="Apartment, House, Condo..."
               onChange={(e) => updateField("propertyType", e.target.value)}
             />
           </div>
 
           {/* Rent + Term */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block mb-2 text-sm font-medium">Rent ($)</label>
+              <label className="block mb-2 font-medium">Rent ($)</label>
               <input
-                className="border rounded-md w-full p-3"
+                className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
                 type="number"
                 onChange={(e) => updateField("rent", e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block mb-2 text-sm font-medium">Term (months)</label>
+              <label className="block mb-2 font-medium">Lease Term (months)</label>
               <input
-                className="border rounded-md w-full p-3"
+                className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
                 type="number"
                 onChange={(e) => updateField("term", e.target.value)}
               />
@@ -103,21 +108,21 @@ export default function GenerateLeasePage() {
 
           {/* Start Date */}
           <div>
-            <label className="block mb-2 text-sm font-medium">Lease Start Date</label>
+            <label className="block mb-2 font-medium">Lease Start Date</label>
             <input
               type="date"
-              className="border rounded-md w-full p-3"
+              className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
               onChange={(e) => updateField("startDate", e.target.value)}
             />
           </div>
 
           {/* Pets / Smoking / Late Fees */}
-          <div className="grid grid-cols-3 gap-4">
-            {/* Pets */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
             <div>
-              <label className="block mb-2 text-sm font-medium">Pets Allowed?</label>
+              <label className="block mb-2 font-medium">Pets Allowed?</label>
               <select
-                className="border rounded-md w-full p-3"
+                className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
                 onChange={(e) => updateField("pets", e.target.value)}
               >
                 <option value="no">No</option>
@@ -125,11 +130,10 @@ export default function GenerateLeasePage() {
               </select>
             </div>
 
-            {/* Smoking */}
             <div>
-              <label className="block mb-2 text-sm font-medium">Smoking?</label>
+              <label className="block mb-2 font-medium">Smoking Allowed?</label>
               <select
-                className="border rounded-md w-full p-3"
+                className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
                 onChange={(e) => updateField("smoking", e.target.value)}
               >
                 <option value="no">No</option>
@@ -137,24 +141,24 @@ export default function GenerateLeasePage() {
               </select>
             </div>
 
-            {/* Late Fees */}
             <div>
-              <label className="block mb-2 text-sm font-medium">Late Fees?</label>
+              <label className="block mb-2 font-medium">Late Fees?</label>
               <select
-                className="border rounded-md w-full p-3"
+                className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
                 onChange={(e) => updateField("lateFees", e.target.value)}
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
               </select>
             </div>
+
           </div>
 
           {/* Deposit */}
           <div>
-            <label className="block mb-2 text-sm font-medium">Security Deposit ($)</label>
+            <label className="block mb-2 font-medium">Security Deposit ($)</label>
             <input
-              className="border rounded-md w-full p-3"
+              className="border rounded-lg w-full p-3 focus:ring-2 focus:ring-blue-500"
               type="number"
               onChange={(e) => updateField("deposit", e.target.value)}
             />
@@ -162,22 +166,26 @@ export default function GenerateLeasePage() {
 
           {/* Extra Clauses */}
           <div>
-            <label className="block mb-2 text-sm font-medium">Additional Clauses (optional)</label>
+            <label className="block mb-2 font-medium">Additional Clauses (optional)</label>
             <textarea
-              className="border rounded-md w-full p-3 h-24"
+              className="border rounded-lg w-full p-3 h-24 focus:ring-2 focus:ring-blue-500"
+              placeholder="Any extra terms or special conditions..."
               onChange={(e) => updateField("extraClauses", e.target.value)}
             />
           </div>
 
-          {/* Submit */}
+          {/* SUBMIT BUTTON */}
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-blue-600 text-white rounded-md px-6 py-3 w-full text-lg hover:bg-blue-700"
+            className={`w-full py-4 text-lg font-medium text-white rounded-lg transition ${
+              loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            {loading ? "Generating..." : "Generate Lease"}
+            {loading ? "Generating Lease..." : "Generate Lease"}
           </button>
         </div>
+
       </div>
     </div>
   );
