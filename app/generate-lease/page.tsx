@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
+
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS",
+  "KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY",
+  "NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV",
+  "WI","WY"
+];
 
 export default function GenerateLeasePage() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     state: "",
@@ -18,11 +26,19 @@ export default function GenerateLeasePage() {
     extraClauses: ""
   });
 
-  const updateField = (key: string, value: string) => {
+  const updateField = (key: keyof typeof form, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!form.state || !form.rent || !form.term || !form.startDate) {
+      setError("Please fill in state, rent, lease duration, and start date.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -31,218 +47,243 @@ export default function GenerateLeasePage() {
         body: JSON.stringify(form)
       });
 
+      if (!res.ok) {
+        throw new Error("Server error while generating lease.");
+      }
+
       const data = await res.json();
       localStorage.setItem("lease-result", JSON.stringify(data));
       window.location.href = "/download";
     } catch (err) {
-      alert("Error generating lease");
       console.error(err);
+      setError("Error generating lease. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* HEADER */}
-      <div className="text-center mb-12 mt-10">
-        <h1 className="text-4xl font-bold text-gray-900">
-          Generate Your Lease Agreement
-        </h1>
-        <p className="text-gray-600 mt-4 text-lg">
-          Enter your property details and create a fully compliant lease in minutes.
-        </p>
+    <div className="relative -mx-6 -mt-10 min-h-[calc(100vh-4rem)] bg-[#050816] text-white">
+      {/* Glow background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-10 h-64 w-64 rounded-full bg-blue-600/30 blur-3xl" />
+        <div className="absolute top-10 right-[-6rem] h-72 w-72 rounded-full bg-purple-500/25 blur-3xl" />
+        <div className="absolute bottom-[-6rem] left-1/3 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
       </div>
 
-      {/* CARD */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10 space-y-10">
-
-        {/* SECTION 1 — BASIC INFO */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Property Information
-          </h2>
-
-          <div className="space-y-6">
-
-            {/* State */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                State
-              </label>
-              <select
-                className="w-full border border-gray-300 rounded-lg p-3 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("state", e.target.value)}
-              >
-                <option value="">Select a state</option>
-                {[
-                  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS",
-                  "KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY",
-                  "NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV",
-                  "WI","WY"
-                ].map(s => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Property Type */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Property Type
-              </label>
-              <input
-                placeholder="Apartment, House, Condo..."
-                className="w-full border border-gray-300 rounded-lg p-3 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("propertyType", e.target.value)}
-              />
-            </div>
-          </div>
+      <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-24">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold">
+            Generate Your Lease Agreement
+          </h1>
+          <p className="mt-3 text-gray-300 max-w-2xl mx-auto">
+            Fill in your property details once. AI Lease Builder will generate a
+            full, state-specific residential lease ready for signing.
+          </p>
         </div>
 
-        <hr className="border-gray-200" />
-
-        {/* SECTION 2 — LEASE TERMS */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Lease Terms
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Rent */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Monthly Rent ($)
-              </label>
-              <input
-                type="number"
-                className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("rent", e.target.value)}
-              />
-            </div>
-
-            {/* Lease Term */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Lease Duration (months)
-              </label>
-              <input
-                type="number"
-                className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("term", e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Start Date */}
-          <div className="mt-6">
-            <label className="block text-gray-700 font-medium mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-              onChange={(e) => updateField("startDate", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <hr className="border-gray-200" />
-
-        {/* SECTION 3 — POLICIES */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Rules & Policies
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Pets */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Pets Allowed?
-              </label>
-              <select
-                className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("pets", e.target.value)}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* Smoking */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Smoking Allowed?
-              </label>
-              <select
-                className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("smoking", e.target.value)}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-
-            {/* Late Fees */}
-            <div>
-              <label className="block text-gray-700 font-medium mb-1">
-                Late Fees?
-              </label>
-              <select
-                className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-                onChange={(e) => updateField("lateFees", e.target.value)}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Deposit */}
-          <div className="mt-6">
-            <label className="block text-gray-700 font-medium mb-1">
-              Security Deposit ($)
-            </label>
-            <input
-              type="number"
-              className="w-full border rounded-lg p-3 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-              onChange={(e) => updateField("deposit", e.target.value)}
-            />
-          </div>
-        </div>
-
-        <hr className="border-gray-200" />
-
-        {/* SECTION 4 — EXTRA CLAUSES */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Additional Clauses (optional)
-          </h2>
-          <textarea
-            placeholder="Any extra terms or specific instructions..."
-            className="w-full border rounded-lg p-4 h-28 border-gray-300 text-gray-900 focus:ring-2 focus:ring-blue-600"
-            onChange={(e) => updateField("extraClauses", e.target.value)}
-          />
-        </div>
-
-        {/* SUBMIT BUTTON */}
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className={`w-full py-4 text-lg font-semibold rounded-xl text-white transition-all ${
-            loading
-              ? "bg-blue-400 cursor-not-allowed"
-              : "bg-blue-600 hover:bg-blue-700 shadow-sm"
-          }`}
+        {/* Card */}
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-2xl border border-white/10 bg-[#090d1f]/95 shadow-2xl shadow-blue-900/40 p-6 md:p-8 space-y-10"
         >
-          {loading ? "Generating Lease..." : "Generate Lease"}
-        </button>
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          )}
 
-        <p className="text-center text-gray-500 text-sm mt-2">
-          Your files will be ready instantly (PDF + DOCX)
-        </p>
+          {/* Section 1: Property Info */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Property Information
+            </h2>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* State */}
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  State <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={form.state}
+                  onChange={(e) => updateField("state", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  <option value="">Select a state</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Property Type */}
+              <div className="md:col-span-1">
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Property Type
+                </label>
+                <input
+                  value={form.propertyType}
+                  onChange={(e) => updateField("propertyType", e.target.value)}
+                  placeholder="Apartment, House, Condo..."
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2: Lease Terms */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Lease Terms
+            </h2>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Rent */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Monthly Rent ($) <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={form.rent}
+                  onChange={(e) => updateField("rent", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                />
+              </div>
+
+              {/* Duration */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Lease Duration (months){" "}
+                  <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={form.term}
+                  onChange={(e) => updateField("term", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                />
+              </div>
+            </div>
+
+            {/* Start Date */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Lease Start Date <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.startDate}
+                onChange={(e) => updateField("startDate", e.target.value)}
+                className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              />
+            </div>
+          </section>
+
+          {/* Section 3: Policies */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Rules & Policies
+            </h2>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {/* Pets */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Pets Allowed?
+                </label>
+                <select
+                  value={form.pets}
+                  onChange={(e) => updateField("pets", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+
+              {/* Smoking */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Smoking Allowed?
+                </label>
+                <select
+                  value={form.smoking}
+                  onChange={(e) => updateField("smoking", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+
+              {/* Late Fees */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-1">
+                  Late Fees?
+                </label>
+                <select
+                  value={form.lateFees}
+                  onChange={(e) => updateField("lateFees", e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Deposit */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-200 mb-1">
+                Security Deposit ($)
+              </label>
+              <input
+                type="number"
+                value={form.deposit}
+                onChange={(e) => updateField("deposit", e.target.value)}
+                className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              />
+            </div>
+          </section>
+
+          {/* Section 4: Additional Clauses */}
+          <section>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Additional Clauses (optional)
+            </h2>
+            <textarea
+              value={form.extraClauses}
+              onChange={(e) => updateField("extraClauses", e.target.value)}
+              placeholder="Any specific terms, obligations, or restrictions you want the lease to include."
+              className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 min-h-[96px] placeholder-gray-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            />
+          </section>
+
+          {/* Submit */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full py-3.5 rounded-xl text-sm md:text-base font-semibold shadow-lg transition ${
+                loading
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-500 hover:opacity-90 shadow-blue-500/40"
+              }`}
+            >
+              {loading ? "Generating your lease..." : "Generate Lease"}
+            </button>
+            <p className="mt-3 text-xs text-center text-gray-400">
+              Your lease will be generated as a multi-page agreement with PDF & DOCX ready to
+              download.
+            </p>
+          </div>
+        </form>
       </div>
     </div>
   );
