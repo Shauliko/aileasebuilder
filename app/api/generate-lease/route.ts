@@ -13,20 +13,61 @@ export async function POST(req: Request) {
     });
 
     const prompt = `
-You are an expert US real estate attorney specializing in residential leases.
-Generate a state-compliant residential lease agreement based on the provided input.
+You are an expert US real estate attorney who prepares legally compliant residential lease agreements for every US state.  
+Your task is to generate a thorough, multi-page, professional lease agreement based on the input provided.
 
-Return the result in valid JSON only.
+IMPORTANT REQUIREMENTS:
+- You MUST return valid JSON onl* (no markdown fences, no comments, no explanations).
+- Your output MUST follow the exact JSON format at the bottom of this prompt.
+- The lease must be complete, detailed, and long (minimum 1,500 words, ideally 2,500–3,500).
+- Each section must be written in full legal language—do NOT summarize or abbreviate.
+- The lease MUST include all required state-specific clauses, disclosures, and notices.
+- Add any mandatory legal disclosures required by the selected state (e.g., lead-based paint for pre-1978 properties, mold disclosures, bed bug disclosures, radon disclosures, etc.).
+- Tailor all laws, fees, grace periods, notice requirements, and landlord rights to the state.
+- Include robust protections for both landlord and tenant.
 
-INPUT:
+LEASE STRUCTURE (do NOT omit sections):
+1. Introduction & Parties
+2. Property Description
+3. Lease Term
+4. Rent, Fees & Payment Rules
+5. Security Deposit & Accounting Rules
+6. Utilities & Services
+7. Use of Premises & Guest Policy
+8. Maintenance, Repairs & Alterations
+9. Pets Policy
+10. Smoking Policy
+11. Parking & Common Areas
+12. Insurance Requirements
+13. Right of Entry
+14. Rules & Regulations
+15. Lead-Based Paint Disclosure (if applicable)
+16. State-Required Disclosures
+17. Late Fees, Returned Payments & Penalties
+18. Subletting
+19. Governing Law
+20. Default & Remedies
+21. Abandonment
+22. Notices
+23. Joint & Several Liability
+24. Military Clause (if required by state)
+25. Additional Addendums (if needed)
+26. Signatures Section
+
+Your writing must be precise, professional, and legally accurate.
+
+----------------------------------------
+INPUT DATA (USE EXACTLY AS PROVIDED)
 ${JSON.stringify(body, null, 2)}
+----------------------------------------
 
-OUTPUT FORMAT (JSON ONLY):
+OUTPUT FORMAT (MUST BE STRICT JSON):
 {
-  "lease_markdown": "...",
-  "addendums_markdown": [],
-  "checklist_markdown": "..."
+  "lease_markdown": "Full lease in Markdown format...",
+  "addendums_markdown": ["Separate addendums as needed, each as Markdown"],
+  "checklist_markdown": "Move-in / move-out checklist as Markdown"
 }
+
 `;
 
     // 🔥 AI CALL
