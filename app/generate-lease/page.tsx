@@ -33,7 +33,9 @@ export default function GenerateLeasePage() {
       const data = await res.json();
       console.log("AI RESPONSE:", data);
 
-      alert("Lease generated! Check console output.");
+      localStorage.setItem("lease-result", JSON.stringify(data));
+      window.location.href = "/download";
+
     } catch (e) {
       console.error(e);
       alert("Error generating lease");
