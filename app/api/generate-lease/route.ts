@@ -29,14 +29,42 @@ OUTPUT FORMAT (JSON ONLY):
 }
 `;
 
-    // AI response
+    // 🔥 AI CALL
     const completion = await client.responses.create({
-      model: "gpt-4.1", // more reliable access
+      model: "gpt-4.1",
       input: prompt
     });
 
-    const jsonText = completion.output_text;
-    const parsed = JSON.parse(jsonText);
+    // 🔥 UNIVERSAL EXTRACTION LOGIC
+    let text = "";
+
+    // New Responses API format (most common)
+    if (completion.output && completion.output.length > 0) {
+      const first = completion.output[0];
+      if (first.content && first.content.length > 0) {
+        text = first.content[0].text || "";
+      }
+    }
+
+    // fallback: output_text
+    if (!text && completion.output_text) {
+      text = completion.output_text;
+    }
+
+    // fallback: chat-style
+    if (!text && completion.choices?.length > 0) {
+      text = completion.choices[0]?.message?.content || "";
+    }
+
+    if (!text) {
+      console.error("AI EMPTY RESPONSE:", completion);
+      throw new Error("OpenAI returned no text.");
+    }
+
+    console.log("RAW AI TEXT:", text);
+
+    // 🔥 Parse the JSON returned by the AI
+    const parsed = JSON.parse(text);
 
     const leaseMd = parsed.lease_markdown || "";
     const checklistMd = parsed.checklist_markdown || "";
@@ -45,23 +73,21 @@ OUTPUT FORMAT (JSON ONLY):
     const leaseHtml = await markdownToHtml(leaseMd);
     const checklistHtml = await markdownToHtml(checklistMd);
 
-    // Generate PDF
+    // PDF
     const leasePdf = await createPdfFromHtml(leaseHtml);
 
-    // Generate DOCX
+    // DOCX
     const doc = new Document({
       sections: [
         {
-          children: [
-            new Paragraph(leaseMd)
-          ]
+          children: [new Paragraph(leaseMd)]
         }
       ]
     });
 
     const docxBuffer = await Packer.toBuffer(doc);
 
-    // Return files as base64 strings
+    // Return to client
     return NextResponse.json({
       lease_markdown: leaseMd,
       lease_html: leaseHtml,
