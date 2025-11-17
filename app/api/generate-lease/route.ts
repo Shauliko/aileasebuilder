@@ -91,12 +91,20 @@ OUTPUT FORMAT (STRICT JSON):
     let text = "";
 
     // New Responses API format
-    if (completion.output && completion.output.length > 0) {
-      const first = completion.output[0];
-      if (first.content && first.content.length > 0) {
-        text = first.content[0].text || "";
-      }
-    }
+   // Handle new Responses API output format safely (optional chaining avoids TS errors)
+   if (completion.output?.length) {
+     const first: any = completion.output[0];
+
+     const possibleText =
+         first?.content?.[0]?.text ||
+         first?.text ||
+         first?.output_text;
+
+   if (possibleText) {
+      text = possibleText;
+   }
+ }
+
 
     // fallback: output_text
     if (!text && completion.output_text) {
