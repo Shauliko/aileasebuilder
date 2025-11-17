@@ -79,32 +79,26 @@ OUTPUT FORMAT (STRICT JSON):
     // 🔥 CALL OPENAI
     // ===========================
     const completion = await client.responses.create({
-      model: "gpt-4.1",
+      model: "gpt-4o-mini", // temporarily use mini until quota fixed
       input: prompt
     });
 
-    console.log("FULL AI RESPONSE:", JSON.stringify(completion, null, 2));
+    console.log("FULL AI RAW:", JSON.stringify(completion, null, 2));
 
     // ===========================
-    // 🔥 UNIVERSAL EXTRACTION LOGIC
+    // 🔥 UNIVERSAL EXTRACTION LOGIC (TypeScript-safe)
     // ===========================
     let text = "";
 
-    // New Responses API format
-   // Handle new Responses API output format safely (optional chaining avoids TS errors)
-   if (completion.output?.length) {
-     const first: any = completion.output[0];
+    if (completion.output?.length) {
+      const first: any = completion.output[0];
+      const possibleText =
+        first?.content?.[0]?.text ||
+        first?.text ||
+        first?.output_text;
 
-     const possibleText =
-         first?.content?.[0]?.text ||
-         first?.text ||
-         first?.output_text;
-
-   if (possibleText) {
-      text = possibleText;
-   }
- }
-
+      if (possibleText) text = possibleText;
+    }
 
     // fallback: output_text
     if (!text && completion.output_text) {
@@ -121,17 +115,17 @@ OUTPUT FORMAT (STRICT JSON):
       throw new Error("OpenAI returned no text.");
     }
 
-    console.log("RAW AI TEXT:", text);
+    console.log("AI EXTRACTED TEXT:", text);
 
     // ===========================
-    // 🔥 JSON PARSING WITH FALLBACK
+    // 🔥 JSON PARSE WITH FALLBACK
     // ===========================
     let parsed: any = null;
 
     try {
       parsed = JSON.parse(text);
     } catch (err) {
-      console.warn("JSON parse failed — falling back to raw text.");
+      console.warn("JSON parse failed — treating raw text as lease_markdown.");
       parsed = {
         lease_markdown: text,
         addendums_markdown: [],
@@ -142,31 +136,26 @@ OUTPUT FORMAT (STRICT JSON):
     let leaseMd = parsed.lease_markdown || "";
     let checklistMd = parsed.checklist_markdown || "";
 
-    // final fallback if still empty
+    // last fallback
     if (!leaseMd && text.trim().length > 0) {
       leaseMd = text;
     }
 
     // ===========================
-    // 🔥 CONVERT MARKDOWN → HTML → PDF
+    // 🔥 CONVERSION: MD → HTML → PDF → DOCX
     // ===========================
     const leaseHtml = await markdownToHtml(leaseMd);
 
     const leasePdf = await createPdfFromHtml(leaseHtml);
 
-    // DOCX
     const doc = new Document({
-      sections: [
-        {
-          children: [new Paragraph(leaseMd)]
-        }
-      ]
+      sections: [{ children: [new Paragraph(leaseMd)] }]
     });
 
     const docxBuffer = await Packer.toBuffer(doc);
 
     // ===========================
-    // 🔥 SEND RESULT
+    // 🔥 SEND FINAL JSON RESULT
     // ===========================
     return NextResponse.json({
       lease_markdown: leaseMd,
