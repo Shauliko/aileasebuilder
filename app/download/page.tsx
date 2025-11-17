@@ -34,8 +34,17 @@ export default function DownloadPage() {
 
       {/* Preview */}
       <div className="border p-4 rounded bg-gray-50 mb-8 max-h-[400px] overflow-auto">
+       {data.lease_html?.trim() ? (
         <div dangerouslySetInnerHTML={{ __html: data.lease_html }} />
+       ) : (
+         <p className="text-gray-500 italic">No preview available — lease_html is empty.</p>
+       )}
       </div>
+
+      <pre className="bg-gray-100 p-4 text-sm overflow-auto">
+       {data.lease_markdown}
+      </pre>
+
 
       {/* Download Buttons */}
       <div className="space-y-4">
