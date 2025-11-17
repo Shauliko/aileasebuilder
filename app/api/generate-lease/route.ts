@@ -83,6 +83,8 @@ OUTPUT FORMAT (STRICT JSON):
       input: prompt
     });
 
+    console.log("FULL AI RESPONSE:", JSON.stringify(completion, null, 2));
+
     // ===========================
     // 🔥 UNIVERSAL EXTRACTION LOGIC
     // ===========================
