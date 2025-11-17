@@ -105,10 +105,16 @@ OUTPUT FORMAT (STRICT JSON):
       text = completion.output_text;
     }
 
-    // fallback: chat-style
-    if (!text && completion.choices?.length > 0) {
-      text = completion.choices[0]?.message?.content || "";
+   // fallback: chat-style responses (defensive)
+   if (!text) {
+     const maybeChoices: any = (completion as any)?.choices;
+
+     if (maybeChoices?.length > 0) {
+       const content = maybeChoices[0]?.message?.content;
+       if (content) text = content;
     }
+  }
+
 
     if (!text) {
       console.error("AI EMPTY RESPONSE:", completion);
