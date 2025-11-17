@@ -12,74 +12,83 @@ export async function POST(req: Request) {
       apiKey: process.env.OPENAI_API_KEY
     });
 
+    // ===========================
+    // 🔥 PREMIUM MULTI-PAGE PROMPT
+    // ===========================
     const prompt = `
-You are an expert US real estate attorney who prepares legally compliant residential lease agreements for every US state.  
-Your task is to generate a thorough, multi-page, professional lease agreement based on the input provided.
+You are an expert US real estate attorney who prepares legally compliant residential lease agreements for every US state.
+Your task is to generate a thorough, multi-page, professional residential lease agreement based strictly on the input provided.
 
 IMPORTANT REQUIREMENTS:
-- You MUST return valid JSON onl* (no markdown fences, no comments, no explanations).
-- Your output MUST follow the exact JSON format at the bottom of this prompt.
+- You MUST return valid JSON only (no markdown fences, no explanations).
 - The lease must be complete, detailed, and long (minimum 1,500 words, ideally 2,500–3,500).
-- Each section must be written in full legal language—do NOT summarize or abbreviate.
+- Each clause must be written in full legal language — no summaries.
 - The lease MUST include all required state-specific clauses, disclosures, and notices.
-- Add any mandatory legal disclosures required by the selected state (e.g., lead-based paint for pre-1978 properties, mold disclosures, bed bug disclosures, radon disclosures, etc.).
-- Tailor all laws, fees, grace periods, notice requirements, and landlord rights to the state.
-- Include robust protections for both landlord and tenant.
+- Include all mandatory disclosures for the provided state (lead-based paint, mold, bed bugs, radon, etc.).
+- Tailor laws, notice periods, fees, grace periods, landlord rights, and remedies to the state.
 
-LEASE STRUCTURE (do NOT omit sections):
-1. Introduction & Parties
+LEASE STRUCTURE (do NOT omit):
+1. Introduction / Parties
 2. Property Description
 3. Lease Term
-4. Rent, Fees & Payment Rules
-5. Security Deposit & Accounting Rules
+4. Rent & Payment Rules
+5. Security Deposit Rules (state-specific)
 6. Utilities & Services
-7. Use of Premises & Guest Policy
-8. Maintenance, Repairs & Alterations
-9. Pets Policy
-10. Smoking Policy
-11. Parking & Common Areas
-12. Insurance Requirements
-13. Right of Entry
-14. Rules & Regulations
-15. Lead-Based Paint Disclosure (if applicable)
-16. State-Required Disclosures
-17. Late Fees, Returned Payments & Penalties
-18. Subletting
-19. Governing Law
-20. Default & Remedies
-21. Abandonment
-22. Notices
-23. Joint & Several Liability
-24. Military Clause (if required by state)
-25. Additional Addendums (if needed)
-26. Signatures Section
+7. Use of Premises
+8. Guest Policy
+9. Maintenance & Repairs
+10. Alterations
+11. Pets Policy
+12. Smoking Policy
+13. Parking
+14. Insurance Requirements
+15. Owner Entry
+16. Rules & Regulations
+17. Required State Disclosures
+18. Lead-Based Paint Disclosure (if pre-1978)
+19. Late Fees, Returned Payments, Penalties
+20. Subletting
+21. Governing Law
+22. Default & Remedies
+23. Abandonment
+24. Notices
+25. Joint & Several Liability
+26. Military Clause (if applicable)
+27. Additional Addendums
+28. Signatures
 
-Your writing must be precise, professional, and legally accurate.
+INCLUDE:
+- Full lease text in Markdown
+- A list of addendums in Markdown array
+- A Move-in/Move-out Checklist in Markdown
 
 ----------------------------------------
-INPUT DATA (USE EXACTLY AS PROVIDED)
+INPUT DATA:
 ${JSON.stringify(body, null, 2)}
 ----------------------------------------
 
-OUTPUT FORMAT (MUST BE STRICT JSON):
+OUTPUT FORMAT (STRICT JSON):
 {
-  "lease_markdown": "Full lease in Markdown format...",
-  "addendums_markdown": ["Separate addendums as needed, each as Markdown"],
-  "checklist_markdown": "Move-in / move-out checklist as Markdown"
+  "lease_markdown": "Full lease text as Markdown",
+  "addendums_markdown": ["Addendum 1...", "Addendum 2..."],
+  "checklist_markdown": "Checklist in Markdown"
 }
-
 `;
 
-    // 🔥 AI CALL
+    // ===========================
+    // 🔥 CALL OPENAI
+    // ===========================
     const completion = await client.responses.create({
       model: "gpt-4.1",
       input: prompt
     });
 
+    // ===========================
     // 🔥 UNIVERSAL EXTRACTION LOGIC
+    // ===========================
     let text = "";
 
-    // New Responses API format (most common)
+    // New Responses API format
     if (completion.output && completion.output.length > 0) {
       const first = completion.output[0];
       if (first.content && first.content.length > 0) {
@@ -104,17 +113,35 @@ OUTPUT FORMAT (MUST BE STRICT JSON):
 
     console.log("RAW AI TEXT:", text);
 
-    // 🔥 Parse the JSON returned by the AI
-    const parsed = JSON.parse(text);
+    // ===========================
+    // 🔥 JSON PARSING WITH FALLBACK
+    // ===========================
+    let parsed: any = null;
 
-    const leaseMd = parsed.lease_markdown || "";
-    const checklistMd = parsed.checklist_markdown || "";
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      console.warn("JSON parse failed — falling back to raw text.");
+      parsed = {
+        lease_markdown: text,
+        addendums_markdown: [],
+        checklist_markdown: ""
+      };
+    }
 
-    // Convert Markdown → HTML
+    let leaseMd = parsed.lease_markdown || "";
+    let checklistMd = parsed.checklist_markdown || "";
+
+    // final fallback if still empty
+    if (!leaseMd && text.trim().length > 0) {
+      leaseMd = text;
+    }
+
+    // ===========================
+    // 🔥 CONVERT MARKDOWN → HTML → PDF
+    // ===========================
     const leaseHtml = await markdownToHtml(leaseMd);
-    const checklistHtml = await markdownToHtml(checklistMd);
 
-    // PDF
     const leasePdf = await createPdfFromHtml(leaseHtml);
 
     // DOCX
@@ -128,7 +155,9 @@ OUTPUT FORMAT (MUST BE STRICT JSON):
 
     const docxBuffer = await Packer.toBuffer(doc);
 
-    // Return to client
+    // ===========================
+    // 🔥 SEND RESULT
+    // ===========================
     return NextResponse.json({
       lease_markdown: leaseMd,
       lease_html: leaseHtml,
