@@ -41,10 +41,9 @@ export default function DownloadPage() {
        )}
       </div>
 
-      <pre className="bg-gray-100 p-4 text-sm overflow-auto">
-       {data.lease_markdown}
+      <pre className="bg-gray-100 p-4 text-sm overflow-auto mt-4">
+        {data.lease_markdown || "⚠️ No markdown returned from AI."}
       </pre>
-
 
       {/* Download Buttons */}
       <div className="space-y-4">
