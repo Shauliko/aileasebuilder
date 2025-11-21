@@ -1,19 +1,39 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-const US_STATES = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS",
-  "KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY",
-  "NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV",
-  "WI","WY"
+type FormState = {
+  state: string;
+  propertyType: string;
+  rent: string;
+  term: string;
+  startDate: string;
+  pets: string;
+  smoking: string;
+  lateFees: string;
+  deposit: string;
+  extraClauses: string;
+  includeMultilingual: boolean;
+  languages: string[];
+};
+
+const ALL_LANGUAGES = [
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "pt", label: "Portuguese" },
+  { code: "zh", label: "Chinese" },
+  { code: "ar", label: "Arabic" },
+  { code: "ru", label: "Russian" },
 ];
 
 export default function GenerateLeasePage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const [form, setForm] = useState({
+  // ----------------------------
+  // Form State Management
+  // ----------------------------
+  const [form, setForm] = useState<FormState>({
     state: "",
     propertyType: "",
     rent: "",
@@ -24,328 +44,362 @@ export default function GenerateLeasePage() {
     lateFees: "no",
     deposit: "",
     extraClauses: "",
-    languages: []
+    includeMultilingual: false,
+    languages: [],
   });
 
-  const updateField = (key: keyof typeof form, value: any) => {
-    setForm(prev => ({ ...prev, [key]: value }));
-  };
+  const [loading, setLoading] = useState(false);
+  const [hasUsedFreeLease, setHasUsedFreeLease] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  // ----------------------------
+  // Check if user used free lease
+  // ----------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setHasUsedFreeLease(localStorage.getItem("hasUsedFreeLease") === "true");
+  }, []);
 
-    if (!form.state || !form.rent || !form.term || !form.startDate) {
-      setError("Please fill in state, rent, lease duration, and start date.");
+  // ----------------------------
+  // Handle simple field updates
+  // ----------------------------
+  const handleChange = (e: any) => {
+    const { name, type, value, checked } = e.target;
+
+    if (name === "includeMultilingual") {
+      setForm((prev) => ({
+        ...prev,
+        includeMultilingual: checked,
+        languages: checked ? prev.languages : [],
+      }));
       return;
     }
 
-    setLoading(true);
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  // ----------------------------
+  // Toggle language selection
+  // ----------------------------
+  const toggleLanguage = (code: string) => {
+    setForm((prev) => {
+      const exists = prev.languages.includes(code);
+      return {
+        ...prev,
+        languages: exists
+          ? prev.languages.filter((c) => c !== code)
+          : [...prev.languages, code],
+      };
+    });
+  };
+
+  // ----------------------------
+  // Submit Handler
+  // ----------------------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Validate required fields
+    if (!form.state || !form.propertyType || !form.rent || !form.term) {
+      setError("Please fill out all required fields.");
+      return;
+    }
+
+    const isMultilingual =
+      form.includeMultilingual && form.languages.length > 0;
 
     try {
-      const res = await fetch("/api/generate-lease", {
-        method: "POST",
-        body: JSON.stringify(form)
-      });
+      setLoading(true);
 
-      if (!res.ok) {
-        throw new Error("Server error while generating lease.");
+      // -------------------------------------------------
+      // MULTILINGUAL CASE → ALWAYS GO TO STRIPE
+      // -------------------------------------------------
+      if (isMultilingual) {
+        const res = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leaseData: form }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
+        setError("Unable to start payment. Please try again.");
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
-      localStorage.setItem("lease-result", JSON.stringify(data));
-      window.location.href = "/download";
+      // -------------------------------------------------
+      // ENGLISH-ONLY CASE
+      // -------------------------------------------------
+
+      // User already used their free English lease
+      if (hasUsedFreeLease) {
+        setError("You’ve already used your free English lease.");
+        setTimeout(() => router.push("/pricing"), 1300);
+        setLoading(false);
+        return;
+      }
+
+      // Generate free lease
+      const genRes = await fetch("/api/generate-lease", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      const genData = await genRes.json();
+
+      // ✅ FIRST: handle errors
+      if (!genRes.ok) {
+        setError(genData.error || "Lease generation failed.");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ SECOND: save lease for download page (localStorage, correct key)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("lease-result", JSON.stringify(genData));
+        localStorage.setItem("hasUsedFreeLease", "true");
+      }
+
+      // ✅ THIRD: redirect AFTER saving
+      router.push("/download");
     } catch (err) {
       console.error(err);
-      setError("Error generating lease. Please try again.");
+      setError("Unexpected error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // ----------------------------
+  // RENDER
+  // ----------------------------
   return (
-    <div className="relative -mx-6 -mt-10 min-h-[calc(100vh-4rem)] bg-[#050816] text-white">
-      {/* Glow background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-10 h-64 w-64 rounded-full bg-blue-600/30 blur-3xl" />
-        <div className="absolute top-10 right-[-6rem] h-72 w-72 rounded-full bg-purple-500/25 blur-3xl" />
-        <div className="absolute bottom-[-6rem] left-1/3 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-[#050816] text-white px-6 py-10">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">Generate your lease</h1>
+        <p className="text-gray-300 mb-6">
+          Your first English-only lease is free. Multilingual leases cost $8 and
+          include all selected languages.
+        </p>
 
-      <div className="relative max-w-4xl mx-auto px-6 pt-16 pb-24">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold">
-            Generate Your Lease Agreement
-          </h1>
-          <p className="mt-3 text-gray-300 max-w-2xl mx-auto">
-            Fill in your property details once. AI Lease Builder will generate a
-            full, state-specific residential lease ready for signing.
-          </p>
-        </div>
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
-        {/* Card */}
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl border border-white/10 bg-[#090d1f]/95 shadow-2xl shadow-blue-900/40 p-6 md:p-8 space-y-10"
+          className="space-y-6 bg-[#0b1024] border border-white/10 rounded-2xl p-6 md:p-8"
         >
-          {/* Error */}
-          {error && (
-            <div className="rounded-lg border border-red-500/60 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          {/* Section 1: Property Info */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Property Information
-            </h2>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* State */}
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  State <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={form.state}
-                  onChange={(e) => updateField("state", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                >
-                  <option value="">Select a state</option>
-                  {US_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Property Type */}
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Property Type
-                </label>
-                <input
-                  value={form.propertyType}
-                  onChange={(e) => updateField("propertyType", e.target.value)}
-                  placeholder="Apartment, House, Condo..."
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 placeholder-gray-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Section 2: Lease Terms */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Lease Terms
-            </h2>
-
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Rent */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Monthly Rent ($) <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={form.rent}
-                  onChange={(e) => updateField("rent", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-
-              {/* Duration */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Lease Duration (months){" "}
-                  <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={form.term}
-                  onChange={(e) => updateField("term", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                />
-              </div>
-            </div>
-
-            {/* Start Date */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Lease Start Date <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => updateField("startDate", e.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-              />
-            </div>
-          </section>
-
-          {/* Section 3: Policies */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Rules & Policies
-            </h2>
-
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* Pets */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Pets Allowed?
-                </label>
-                <select
-                  value={form.pets}
-                  onChange={(e) => updateField("pets", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                >
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
-
-              {/* Smoking */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Smoking Allowed?
-                </label>
-                <select
-                  value={form.smoking}
-                  onChange={(e) => updateField("smoking", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                >
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
-
-              {/* Late Fees */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-1">
-                  Late Fees?
-                </label>
-                <select
-                  value={form.lateFees}
-                  onChange={(e) => updateField("lateFees", e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                >
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Deposit */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Security Deposit ($)
-              </label>
-              <input
-                type="number"
-                value={form.deposit}
-                onChange={(e) => updateField("deposit", e.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-              />
-            </div>
-          </section>
-
-          {/* Section 4: Additional Clauses */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Additional Clauses (optional)
-            </h2>
-            <textarea
-              value={form.extraClauses}
-              onChange={(e) => updateField("extraClauses", e.target.value)}
-              placeholder="Any specific terms, obligations, or restrictions you want the lease to include."
-              className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 min-h-[96px] placeholder-gray-500 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+          {/* BASIC FIELDS */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <InputField
+              label="State *"
+              name="state"
+              value={form.state}
+              onChange={handleChange}
             />
-          </section>
+            <InputField
+              label="Property Type *"
+              name="propertyType"
+              value={form.propertyType}
+              onChange={handleChange}
+            />
+          </div>
 
-          {/* Section 5: Language Options */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 text-white">
-              Language Options
-            </h2>
+          {/* RENT + TERM + DATE */}
+          <div className="grid md:grid-cols-3 gap-4">
+            <InputField
+              label="Monthly Rent (USD) *"
+              name="rent"
+              value={form.rent}
+              onChange={handleChange}
+            />
+            <InputField
+              label="Term *"
+              name="term"
+              value={form.term}
+              onChange={handleChange}
+            />
+            <DateField
+              label="Start Date"
+              name="startDate"
+              value={form.startDate}
+              onChange={handleChange}
+            />
+          </div>
 
-            {/* Checkbox */}
-            <div className="flex items-center gap-3 mb-4">
-              <input
-                type="checkbox"
-                checked={form.languages && form.languages.length > 0}
-                onChange={(e) => {
-                  if (!e.target.checked) {
-                    updateField("languages", []);
-                  } else {
-                    updateField("languages", ["Spanish"]); // default
-                  }
-                }}
-                className="h-4 w-4 rounded bg-[#050816] border-white/20"
-              />
-              <label className="text-gray-300">
-                Generate lease in additional languages
-              </label>
-            </div>
+          {/* OPTIONS */}
+          <OptionsGroup form={form} handleChange={handleChange} />
 
-            {/* Dropdown (only shown if checkbox is active) */}
-            {form.languages && form.languages.length > 0 && (
-              <div className="space-y-4">
-                <label className="block text-sm text-gray-300">
-                Select Languages (choose one or more)
-                </label>
+          {/* DEPOSIT + EXTRA CLAUSES */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <InputField
+              label="Security Deposit (USD)"
+              name="deposit"
+              value={form.deposit}
+              onChange={handleChange}
+            />
+            <TextareaField
+              label="Extra Clauses"
+              name="extraClauses"
+              value={form.extraClauses}
+              onChange={handleChange}
+            />
+          </div>
 
-                <select
-                  multiple
-                  value={form.languages}
-                  onChange={(e) => {
-                    const selected = Array.from(
-                      e.target.selectedOptions,
-                      (option) => option.value
-                    );
-                    updateField("languages", selected);
-                  }}
-                  className="w-full rounded-lg border border-white/15 bg-[#050816] px-3 py-3 text-sm text-gray-100 h-40"
-                >
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
-                  <option value="Portuguese">Portuguese</option>
-                  <option value="Chinese (Simplified)">Chinese (Simplified)</option>
-                  <option value="Arabic">Arabic</option>
-                  <option value="Hindi">Hindi</option>
-                </select>
+          {/* MULTILINGUAL */}
+          <MultilingualSelector
+            includeMultilingual={form.includeMultilingual}
+            languages={form.languages}
+            toggleLanguage={toggleLanguage}
+            handleChange={handleChange}
+          />
 
-                <p className="text-xs text-gray-400">
-                  Tip: Hold CTRL (Windows) or CMD (Mac) to select multiple.
-                </p>
-              </div>
-            )}
-          </section>
-
-
-          {/* Submit */}
-          <div className="pt-2">
+          {/* SUBMIT */}
+          <div className="pt-4 flex justify-end">
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3.5 rounded-xl text-sm md:text-base font-semibold shadow-lg transition ${
-                loading
-                  ? "bg-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-500 hover:opacity-90 shadow-blue-500/40"
-              }`}
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-500 font-semibold text-white text-sm shadow-lg shadow-blue-500/40 disabled:opacity-50"
             >
-              {loading ? "Generating your lease..." : "Generate Lease"}
+              {loading ? "Generating..." : "Generate Lease"}
             </button>
-            <p className="mt-3 text-xs text-center text-gray-400">
-              Your lease will be generated as a multi-page agreement with PDF & DOCX ready to
-              download.
-            </p>
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// ----------------------------
+// Form Subcomponents
+// ----------------------------
+
+function InputField({ label, name, value, onChange }: any) {
+  return (
+    <div>
+      <label className="block text-sm mb-1">{label}</label>
+      <input
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full rounded-lg bg-[#050816] border border-white/15 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+      />
+    </div>
+  );
+}
+
+function DateField({ label, name, value, onChange }: any) {
+  return (
+    <div>
+      <label className="block text-sm mb-1">{label}</label>
+      <input
+        type="date"
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full rounded-lg bg-[#050816] border border-white/15 px-3 py-2 text-sm"
+      />
+    </div>
+  );
+}
+
+function TextareaField({ label, name, value, onChange }: any) {
+  return (
+    <div>
+      <label className="block text-sm mb-1">{label}</label>
+      <textarea
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full rounded-lg bg-[#050816] border border-white/15 px-3 py-2 text-sm h-20"
+      />
+    </div>
+  );
+}
+
+function OptionsGroup({ form, handleChange }: any) {
+  return (
+    <div className="grid md:grid-cols-3 gap-4">
+      {[
+        { label: "Pets Allowed?", name: "pets" },
+        { label: "Smoking Allowed?", name: "smoking" },
+        { label: "Late Fees?", name: "lateFees" },
+      ].map((opt) => (
+        <div key={opt.name}>
+          <label className="block text-sm mb-1">{opt.label}</label>
+          <select
+            name={opt.name}
+            value={form[opt.name]}
+            onChange={handleChange}
+            className="w-full rounded-lg bg-[#050816] border border-white/15 px-3 py-2 text-sm"
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MultilingualSelector({
+  includeMultilingual,
+  languages,
+  handleChange,
+  toggleLanguage,
+}: any) {
+  return (
+    <div className="border border-white/10 rounded-xl p-4 bg-[#050816]/60">
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          name="includeMultilingual"
+          checked={includeMultilingual}
+          onChange={handleChange}
+          className="h-4 w-4 rounded border-white/40 bg-transparent"
+        />
+        <span className="text-sm font-medium">
+          Include multilingual versions (requires $8 payment)
+        </span>
+      </label>
+
+      {includeMultilingual && (
+        <div className="mt-3">
+          <p className="text-xs text-gray-300 mb-2">
+            Select all languages you want. English is always included.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ALL_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => toggleLanguage(lang.code)}
+                className={`px-3 py-1 rounded-full text-xs border ${
+                  languages.includes(lang.code)
+                    ? "bg-cyan-500 text-black border-cyan-400"
+                    : "bg-transparent text-gray-300 border-white/30"
+                }`}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

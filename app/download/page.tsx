@@ -1,259 +1,273 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type TranslatedLease = {
-  language: string;
-  markdown: string;
-  html: string;
-  pdf_base64: string;
-  docx_base64: string;
-};
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type LeaseResult = {
-  lease_html?: string;
+  success?: boolean;
+  userEmail?: string | null;
+  isPrivilegedUser?: boolean;
+  planType?: string;
+  languages?: string[];
   lease_markdown?: string;
-  lease_pdf_base64?: string;
-  lease_docx_base64?: string;
+  lease_html?: string;
   checklist_markdown?: string;
-  translated?: TranslatedLease[];
+  translated?: any[];
+  lease_pdf_base64?: string | null;
+  lease_docx_base64?: string | null;
 };
 
-const languageLabels: Record<string, { en: string; native: string }> = {
-  Spanish: { en: "Spanish", native: "Español" },
-  French: { en: "French", native: "Français" },
-  Portuguese: { en: "Portuguese", native: "Português" },
-  "Chinese (Simplified)": { en: "Chinese", native: "中文" },
-  Arabic: { en: "Arabic", native: "العربية" },
-  Hindi: { en: "Hindi", native: "हिन्दी" }
-};
+function base64ToBlob(base64: string, mime: string): Blob {
+  const byteChars = typeof atob === "function" ? atob(base64) : "";
+  const byteNumbers = new Array(byteChars.length);
 
-function getLanguageLabel(lang: string): string {
-  if (lang === "English") return "English (English)";
-  const meta = languageLabels[lang];
-  if (!meta) return lang;
-  return `${meta.en} (${meta.native})`;
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mime });
 }
 
-export default function DownloadPage() {
-  const [data, setData] = useState<LeaseResult | null>(null);
-  const [activeLang, setActiveLang] = useState<string>("English");
-  const [openAccordion, setOpenAccordion] = useState<string | null>("English");
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function DownloadLeasePage() {
+  const router = useRouter();
+  const [leaseData, setLeaseData] = useState<LeaseResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const json = localStorage.getItem("lease-result");
-    if (json) {
-      const parsed: LeaseResult = JSON.parse(json);
-      setData(parsed);
-      setActiveLang("English");
-      setOpenAccordion("English");
+    try {
+      const stored =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("lease-result") ??
+            localStorage.getItem("lease-result")
+          : null;
+
+      if (!stored) {
+        setError("No lease found. Please generate a lease first.");
+        setLoading(false);
+        return;
+      }
+
+      const parsed: LeaseResult = JSON.parse(stored);
+
+      if (!parsed || !parsed.lease_markdown) {
+        setError("Saved lease is incomplete. Please generate a new lease.");
+        setLoading(false);
+        return;
+      }
+
+      setLeaseData(parsed);
+      setLoading(false);
+    } catch (err) {
+      console.error("Failed to read lease from storage:", err);
+      setError("Could not load saved lease. Please generate a new lease.");
+      setLoading(false);
     }
   }, []);
 
-  if (!data) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050816] text-white px-6">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold">No Lease Found</h2>
-          <p className="text-gray-400 mt-2">
-            Please generate a lease first.
-          </p>
+  const handleDownloadPdf = () => {
+    if (!leaseData?.lease_pdf_base64) {
+      alert("PDF file is not available. Please regenerate the lease.");
+      return;
+    }
+    const blob = base64ToBlob(leaseData.lease_pdf_base64, "application/pdf");
+    triggerDownload(blob, "Residential-Lease.pdf");
+  };
 
-          <a
-            href="/generate-lease"
-            className="inline-block mt-6 px-6 py-3 rounded-xl bg-gradient-to-r 
-            from-blue-600 via-cyan-500 to-purple-500 text-white font-semibold shadow-lg"
-          >
-            Generate Lease
-          </a>
-        </div>
-      </div>
+  const handleDownloadDocx = () => {
+    if (!leaseData?.lease_docx_base64) {
+      alert("DOCX file is not available. Please regenerate the lease.");
+      return;
+    }
+    const blob = base64ToBlob(
+      leaseData.lease_docx_base64,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    triggerDownload(blob, "Residential-Lease.docx");
+  };
+
+  const handleDownloadHtml = () => {
+    if (!leaseData?.lease_html) {
+      alert("HTML content is not available.");
+      return;
+    }
+    const blob = new Blob([leaseData.lease_html], {
+      type: "text/html;charset=utf-8",
+    });
+    triggerDownload(blob, "Residential-Lease.html");
+  };
+
+  const handleDownloadMarkdown = () => {
+    if (!leaseData?.lease_markdown) {
+      alert("Markdown content is not available.");
+      return;
+    }
+    const blob = new Blob([leaseData.lease_markdown], {
+      type: "text/markdown;charset=utf-8",
+    });
+    triggerDownload(blob, "Residential-Lease.md");
+  };
+
+  const handleDownloadChecklistMarkdown = () => {
+    if (!leaseData?.checklist_markdown) {
+      alert("Checklist markdown is not available.");
+      return;
+    }
+    const blob = new Blob([leaseData.checklist_markdown], {
+      type: "text/markdown;charset=utf-8",
+    });
+    triggerDownload(blob, "Tenant-Checklist.md");
+  };
+
+  const handleOpenChecklistPdfView = () => {
+    if (!leaseData?.checklist_markdown) {
+      alert("Checklist content is not available.");
+      return;
+    }
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    const checklistHtml =
+      "<html><head><title>Tenant Checklist</title></head><body>" +
+      `<pre style='white-space:pre-wrap;font-family:system-ui'>${leaseData.checklist_markdown}</pre>` +
+      "<script>window.onload = function() { window.print(); }</script>" +
+      "</body></html>";
+
+    win.document.open();
+    win.document.write(checklistHtml);
+    win.document.close();
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#020617] max-w-3xl mx-auto px-4 py-20 text-gray-300">
+        <h1 className="text-3xl font-bold mb-4 text-white">
+          Preparing your lease…
+        </h1>
+        <p className="text-gray-400">Please wait a moment.</p>
+      </main>
     );
   }
 
-  const allLanguages: string[] = [
-    "English",
-    ...(data.translated?.map((t) => t.language) || [])
-  ];
-
-  const getHtmlForLanguage = (lang: string): string => {
-    if (lang === "English") {
-      return data.lease_html || "<p>No preview available.</p>";
-    }
-    const match = data.translated?.find((t) => t.language === lang);
-    return match?.html || "<p>No preview available for this language.</p>";
-  };
-
-  const downloadBase64 = (base64: string, filename: string, mime: string) => {
-    const link = document.createElement("a");
-    link.href = `data:${mime};base64,${base64}`;
-    link.download = filename;
-    link.click();
-  };
-
-  const activeHtml = getHtmlForLanguage(activeLang);
-
-  const accordionItems = [
-    {
-      id: "English",
-      label: getLanguageLabel("English"),
-      pdf_base64: data.lease_pdf_base64,
-      docx_base64: data.lease_docx_base64,
-      isTranslation: false
-    },
-    ...(data.translated || []).map((t) => ({
-      id: t.language,
-      label: getLanguageLabel(t.language),
-      pdf_base64: t.pdf_base64,
-      docx_base64: t.docx_base64,
-      isTranslation: true
-    }))
-  ];
+  if (error || !leaseData) {
+    return (
+      <main className="min-h-screen bg-[#020617] max-w-3xl mx-auto px-4 py-20 text-gray-300">
+        <div className="bg-[#111827] border border-white/10 rounded-xl p-8 shadow-xl backdrop-blur">
+          <h1 className="text-3xl font-bold mb-4 text-white">No Lease Found</h1>
+          <p className="text-red-400 mb-6">
+            {error || "Please generate a lease before visiting this page."}
+          </p>
+          <button
+            onClick={() => router.push("/generate-lease")}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 px-5 py-2 rounded-md text-white font-semibold hover:opacity-90"
+          >
+            Go to Generate Lease
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div className="relative min-h-screen bg-[#050816] text-white px-6 py-10">
-      {/* Glowing Background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-20 left-20 h-60 w-60 bg-purple-600/30 rounded-full blur-3xl" />
-        <div className="absolute top-40 right-10 h-72 w-72 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-1/2 h-64 w-64 bg-cyan-400/20 rounded-full blur-3xl" />
-      </div>
+    <main className="min-h-screen bg-[#020617] max-w-4xl mx-auto px-4 py-16 text-gray-300">
+      <div className="bg-[#111827] border border-white/10 rounded-xl p-10 shadow-xl backdrop-blur">
+        <h1 className="text-4xl font-bold text-white mb-3">Your Lease Is Ready</h1>
+        <p className="text-gray-400 mb-10">
+          Your residential lease has been generated successfully. Download it in
+          any of the available formats.
+        </p>
 
-      <div className="relative max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold">Your Lease Is Ready</h1>
-          <p className="text-gray-300 mt-2">
-            Preview your lease and download language-specific files.
-          </p>
-        </div>
+        {/* Downloads Section */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold text-white mb-4">
+            Lease Downloads
+          </h2>
 
-        {/* Language Tabs for Preview */}
-        <div className="mb-6 flex flex-wrap gap-2 border-b border-white/10 pb-3">
-          {allLanguages.map((lang) => (
+          <div className="flex flex-wrap gap-4">
             <button
-              key={lang}
-              onClick={() => setActiveLang(lang)}
-              className={`px-4 py-1.5 text-sm rounded-full border transition ${
-                activeLang === lang
-                  ? "bg-white text-[#050816] border-white"
-                  : "border-white/20 text-gray-300 hover:border-cyan-400 hover:text-white"
-              }`}
+              onClick={handleDownloadPdf}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 rounded-md text-white font-semibold hover:opacity-90"
             >
-              {getLanguageLabel(lang)}
+              Download Lease (PDF)
             </button>
-          ))}
-        </div>
 
-        {/* Preview Card */}
-        <div className="rounded-2xl border border-white/10 bg-[#0c1127]/90 shadow-xl p-6 md:p-8 mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">
-              Lease Preview — {getLanguageLabel(activeLang)}
-            </h2>
-            {activeLang !== "English" && (
-              <p className="text-xs text-gray-400">
-                Translation generated by AI. Review before signing.
-              </p>
-            )}
+            <button
+              onClick={handleDownloadDocx}
+              className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20"
+            >
+              Download Lease (DOCX)
+            </button>
+
+            <button
+              onClick={handleDownloadHtml}
+              className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20"
+            >
+              Download Lease (HTML)
+            </button>
+
+            <button
+              onClick={handleDownloadMarkdown}
+              className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20"
+            >
+              Download Lease (Markdown)
+            </button>
           </div>
+        </section>
 
-          <div
-            className="prose prose-invert max-w-none bg-[#0a0f24] border border-white/10 p-5 rounded-xl overflow-auto max-h-[460px] text-gray-100 text-sm"
-            dangerouslySetInnerHTML={{ __html: activeHtml }}
-          />
-        </div>
+        {/* Checklist Section */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold text-white mb-2">
+            Tenant Checklist
+          </h2>
+          <p className="text-gray-400 mb-4">
+            The move-in / execution checklist is available separately:
+          </p>
 
-        {/* Accordion Downloads */}
-        <div className="space-y-3">
-          {accordionItems.map((item) => {
-            const isOpen = openAccordion === item.id;
-            const hasPdf = !!item.pdf_base64;
-            const hasDocx = !!item.docx_base64;
+          <div className="flex flex-wrap gap-4">
+            <button
+              onClick={handleDownloadChecklistMarkdown}
+              className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20"
+            >
+              Download Checklist (Markdown)
+            </button>
 
-            return (
-              <div
-                key={item.id}
-                className="border border-white/10 rounded-xl bg-[#0c1127]/80 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenAccordion(isOpen ? null : item.id)
-                  }
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm md:text-base"
-                >
-                  <div>
-                    <div className="font-semibold">
-                      {item.label}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {item.isTranslation
-                        ? "Translated lease files"
-                        : "Original English lease files"}
-                    </div>
-                  </div>
-                  <span className="text-gray-300">
-                    {isOpen ? "▲" : "▼"}
-                  </span>
-                </button>
+            <button
+              onClick={handleOpenChecklistPdfView}
+              className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20"
+            >
+              Open Checklist as PDF (Print)
+            </button>
+          </div>
+        </section>
 
-                {isOpen && (
-                  <div className="px-4 pb-4 flex flex-col md:flex-row gap-3">
-                    <button
-                      onClick={() =>
-                        hasPdf &&
-                        downloadBase64(
-                          item.pdf_base64!,
-                          `${item.id.toLowerCase()}-lease.pdf`,
-                          "application/pdf"
-                        )
-                      }
-                      disabled={!hasPdf}
-                      className={`flex-1 py-3 rounded-lg text-sm font-semibold shadow-md transition ${
-                        hasPdf
-                          ? "bg-gradient-to-r from-blue-600 via-cyan-500 to-purple-500 shadow-blue-900/40 hover:opacity-90"
-                          : "bg-gray-600 cursor-not-allowed"
-                      }`}
-                    >
-                      Download PDF
-                    </button>
+        {/* Preview Section */}
+        <section className="pt-6 border-t border-white/10">
+          <h2 className="text-2xl font-semibold text-white mb-3">
+            Quick Preview (Read-Only)
+          </h2>
+          <p className="text-gray-400 mb-4">
+            This is a plain-text preview. Your downloaded PDF/DOCX will be the
+            formatted version.
+          </p>
 
-                    <button
-                      onClick={() =>
-                        hasDocx &&
-                        downloadBase64(
-                          item.docx_base64!,
-                          `${item.id.toLowerCase()}-lease.docx`,
-                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                      }
-                      disabled={!hasDocx}
-                      className={`flex-1 py-3 rounded-lg text-sm font-semibold shadow-md transition ${
-                        hasDocx
-                          ? "bg-gradient-to-r from-purple-600 via-blue-500 to-cyan-400 shadow-purple-900/40 hover:opacity-90"
-                          : "bg-gray-600 cursor-not-allowed"
-                      }`}
-                    >
-                      Download DOCX
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer actions */}
-        <div className="flex items-center justify-between text-sm text-gray-400 pt-6">
-          <a href="/generate-lease" className="hover:text-white transition">
-            ← Edit Details
-          </a>
-          <a href="/" className="hover:text-white transition">
-            Return to Home →
-          </a>
-        </div>
+          <div className="border border-white/10 bg-[#0B0F19] rounded-lg p-4 max-h-96 overflow-y-auto text-sm whitespace-pre-wrap font-mono shadow-inner">
+            {leaseData.lease_markdown}
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

@@ -13,7 +13,7 @@
     "gray-matter": "^4.0.3",
     "html-to-text": "^9.0.5",
     "next": "16.0.3",
-    "openai": "^6.9.0",
+    "openai": "^6.9.1",
     "pdf-lib": "^1.17.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

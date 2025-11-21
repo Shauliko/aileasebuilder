@@ -1,4 +1,3 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -17,9 +16,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.className} bg-[#050816] text-white min-h-screen`}
-      >
+      <body className={`${inter.className} bg-[#050816] text-white min-h-screen`}>
+        
         {/* Top nav */}
         <nav className="w-full border-b border-white/10 bg-[#050816]/90 backdrop-blur">
           <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -27,35 +25,28 @@ export default function RootLayout({
               <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-500 via-cyan-400 to-purple-500 flex items-center justify-center text-xs font-bold">
                 AI
               </div>
-              <span className="font-semibold tracking-tight">
-                AI Lease Builder
-              </span>
+              <span className="font-semibold tracking-tight">AI Lease Builder</span>
             </a>
 
             <div className="flex items-center gap-6 text-sm">
-              <a
-                href="/generate-lease"
-                className="text-gray-300 hover:text-white transition"
-              >
+              <a href="/generate-lease" className="text-gray-300 hover:text-white transition">
                 Generate Lease
               </a>
-              <a
-                href="/pricing"
-                className="text-gray-300 hover:text-white transition"
-              >
+              <a href="/pricing" className="text-gray-300 hover:text-white transition">
                 Pricing
               </a>
-              <a
-                href="/faq"
-                className="text-gray-300 hover:text-white transition"
-              >
+              <a href="/faq" className="text-gray-300 hover:text-white transition">
                 FAQ
               </a>
             </div>
           </div>
         </nav>
 
-        <main>{children}</main>
+        {/* GLOBAL FULL-WIDTH DARK BACKGROUND */}
+        <main className="w-full min-h-screen bg-[#050816] text-gray-300">
+          {children}
+        </main>
+
       </body>
     </html>
   );
