@@ -3,12 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "cross-env DOTENV_FILE=.env next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^4.13.23",
+    "@clerk/nextjs": "^6.35.4",
+    "@vercel/postgres": "^0.10.0",
+    "cross-env": "^10.1.0",
     "docx": "^9.5.1",
     "gray-matter": "^4.0.3",
     "html-to-text": "^9.0.5",

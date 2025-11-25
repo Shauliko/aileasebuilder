@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { OPTIONAL_CLAUSES } from "@/lib/optionalClauses";
+import { useUser } from "@clerk/nextjs";
 
 type FormState = {
   state: string;
@@ -28,7 +30,10 @@ const ALL_LANGUAGES = [
 ];
 
 export default function GenerateLeasePage() {
-  const router = useRouter();
+    const { user } = useUser();
+    const userEmail = user?.primaryEmailAddress?.emailAddress || null;
+
+    const router = useRouter();
 
   // ----------------------------
   // Form State Management
@@ -153,8 +158,11 @@ export default function GenerateLeasePage() {
       const genRes = await fetch("/api/generate-lease", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+        body: JSON.stringify({
+          ...form,
+          userEmail,   // ✅ inside the JSON body
+        }),
+      }); 
 
       const genData = await genRes.json();
 

@@ -5,6 +5,13 @@ import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
 import { createDocxFromMarkdown } from "../utils/createDocx";
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { canGenerateLease, recordLeaseGeneration } from "../utils/usage";
+
+// 🔥 NEW — state compliance
+import { getComplianceForState } from "@/lib/getComplianceForState";
+
+// Ensure Node.js runtime (needed for crypto/Postgres)
+export const runtime = "nodejs";
 
 // -----------------------------------------------------------
 // PRIVILEGED USERS — can bypass free-tier limits & multilingual restriction
@@ -110,6 +117,17 @@ export async function POST(req: Request) {
     const { languages = [] } = body;
 
     // -----------------------------------------------------------
+    // IP for server-side enforcement
+    // -----------------------------------------------------------
+    const xff = req.headers.get("x-forwarded-for");
+    const ip =
+      (xff && xff.split(",")[0].trim()) ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
+    console.log("ADMIN DEBUG — Incoming IP:", ip);
+
+    // -----------------------------------------------------------
     // Infer email and plan (non-breaking)
     // -----------------------------------------------------------
     const emailFromBody: string | undefined =
@@ -119,6 +137,29 @@ export async function POST(req: Request) {
 
     const isPrivilegedUser =
       !!emailFromBody && privilegedUsers.includes(emailFromBody);
+
+    // -----------------------------------------------------------
+    // Server-side FREE-TIER enforcement (IP + email)
+    // -----------------------------------------------------------
+    const adminIPs = ["127.0.0.1", "::1", "192.168.1.238"];
+
+    if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
+      const { allowed } = await canGenerateLease(
+        emailFromBody || null,
+        ip
+      );
+
+      if (!allowed) {
+        return NextResponse.json(
+          {
+            error:
+              "Free lease limit reached. Please upgrade to continue generating leases.",
+            code: "FREE_TIER_LIMIT_REACHED",
+          },
+          { status: 402 }
+        );
+      }
+    }
 
     // -----------------------------------------------------------
     // Multilingual restriction for FREE users (unless privileged)
@@ -134,11 +175,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // -----------------------------------------------------------
+    // 🔥 NEW — STATE COMPLIANCE INJECTION
+    // -----------------------------------------------------------
+    const compliance = getComplianceForState(
+      body.state || body.propertyState || "DEFAULT"
+    );
+
     // ==========================================================
     // STEP 1 — GENERATE MAIN ENGLISH LEASE
     // ==========================================================
+    const selectedClauses: string[] = body.optionalClauses || [];
     const mainPrompt = `
 You are an expert U.S. real estate attorney. Generate a complete, professional, legally compliant residential lease agreement.
+
+STATE SELECTED: ${body.state || body.propertyState}
+
+MANDATORY COMPLIANCE REQUIREMENTS:
+- Governing Law / Landlord-Tenant Act: ${compliance.landlordTenantAct}
+- Required Disclosures: ${compliance.disclosures.join(", ") || "None"}
+- Habitability Rules: ${compliance.habitability.join(", ") || "None"}
+- Addendums to Include: ${compliance.addendums.join(", ") || "None"}
+- Forbidden Clauses (DO NOT INCLUDE): ${compliance.forbiddenClauses.join(", ") || "None"}
 
 STRICT OUTPUT RULES:
 - Output only VALID JSON.
@@ -155,9 +213,9 @@ ${JSON.stringify(body, null, 2)}
 
 OUTPUT FORMAT EXAMPLE:
 {
-  "lease_markdown": "...",
+  "lease_markdown": ".",
   "addendums_markdown": [],
-  "checklist_markdown": "..."
+  "checklist_markdown": "."
 }
 `;
 
@@ -215,7 +273,7 @@ Preserve markdown structure (### headings, - bullets).
 Return ONLY VALID JSON:
 {
   "language": "${lang}",
-  "markdown": "..."
+  "markdown": "."
 }
 
 LEASE TO TRANSLATE:
@@ -254,6 +312,14 @@ ${leaseMd}
         pdf_base64: tPdfBase64,
         docx_base64: tDocxBuf.toString("base64"),
       });
+    }
+
+    // -----------------------------------------------------------
+    // Record successful FREE lease usage (server-side)
+    // -----------------------------------------------------------
+    
+      if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
+      await recordLeaseGeneration(emailFromBody || null, ip);
     }
 
     // ==========================================================
