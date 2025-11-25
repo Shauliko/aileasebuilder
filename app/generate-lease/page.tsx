@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { OPTIONAL_CLAUSES } from "@/lib/optionalClauses";
 import { useUser } from "@clerk/nextjs";
+import Script from "next/script"; // ✅ Added for SEO JSON-LD
 
 type FormState = {
   state: string;
@@ -30,10 +31,10 @@ const ALL_LANGUAGES = [
 ];
 
 export default function GenerateLeasePage() {
-    const { user } = useUser();
-    const userEmail = user?.primaryEmailAddress?.emailAddress || null;
+  const { user } = useUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress || null;
 
-    const router = useRouter();
+  const router = useRouter();
 
   // ----------------------------
   // Form State Management
@@ -160,26 +161,24 @@ export default function GenerateLeasePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          userEmail,   // ✅ inside the JSON body
+          userEmail, // ✅ included
         }),
-      }); 
+      });
 
       const genData = await genRes.json();
 
-      // ✅ FIRST: handle errors
       if (!genRes.ok) {
         setError(genData.error || "Lease generation failed.");
         setLoading(false);
         return;
       }
 
-      // ✅ SECOND: save lease for download page (localStorage, correct key)
+      // Save to localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem("lease-result", JSON.stringify(genData));
         localStorage.setItem("hasUsedFreeLease", "true");
       }
 
-      // ✅ THIRD: redirect AFTER saving
       router.push("/download");
     } catch (err) {
       console.error(err);
@@ -194,6 +193,34 @@ export default function GenerateLeasePage() {
   // ----------------------------
   return (
     <div className="min-h-screen bg-[#050816] text-white px-6 py-10">
+      
+      {/* ✅ SEO Structured Data (injected surgically) */}
+      <Script
+        id="generate-lease-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Service",
+            name: "AI Lease Generator",
+            description:
+              "Generate a legally-compliant, state-specific residential lease instantly. Your first English lease is free; multilingual versions cost $8.",
+            provider: {
+              "@type": "Organization",
+              name: "AI Lease Builder",
+              url: "https://aileasebuilder.com"
+            },
+            offers: {
+              "@type": "Offer",
+              price: "0.00",
+              priceCurrency: "USD",
+              description:
+                "First English lease is free. Multilingual leases cost $8."
+            }
+          })
+        }}
+      />
+
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl md:text-4xl font-bold mb-2">Generate your lease</h1>
         <p className="text-gray-300 mb-6">
@@ -293,7 +320,7 @@ export default function GenerateLeasePage() {
 }
 
 // ----------------------------
-// Form Subcomponents
+// Form Subcomponents (unchanged)
 // ----------------------------
 
 function InputField({ label, name, value, onChange }: any) {

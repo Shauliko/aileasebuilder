@@ -1,3 +1,5 @@
+import Script from "next/script"; // ✅ added
+
 const FALLBACK_DISCLAIMER_HTML = `
 <h2>Legal Disclaimer</h2>
 <p>AI Lease Builder is not a law firm and does not provide legal advice, representation, or services. All content, including any generated lease, addendum, or clause, is provided for informational and drafting assistance purposes only.</p>
@@ -28,13 +30,46 @@ export default async function DisclaimerPage() {
       ? data.legal.legalDisclaimer
       : FALLBACK_DISCLAIMER_HTML;
 
+  // -----------------------------------------
+  // JSON-LD schema (SEO structured data)
+  // -----------------------------------------
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Legal Disclaimer",
+    url: "https://aileasebuilder.com/legal/disclaimer",
+    description:
+      "Read the AI Lease Builder Legal Disclaimer. AI Lease Builder is not a law firm, does not provide legal advice, and all generated documents should be reviewed by a licensed attorney.",
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 text-gray-200">
+
+      {/* ✅ SEO Structured Data */}
+      <Script
+        id="disclaimer-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+
       <h1 className="text-3xl font-bold mb-6">Legal Disclaimer</h1>
+
       <div
         className="prose prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+
+      {/* ✅ INTERNAL LINK ADDED — SURGICAL */}
+      <p className="text-gray-400 text-sm mt-8">
+        Return to{" "}
+        <a
+          href="/"
+          className="text-cyan-300 hover:underline underline-offset-2"
+        >
+          Home
+        </a>
+        .
+      </p>
     </div>
   );
 }

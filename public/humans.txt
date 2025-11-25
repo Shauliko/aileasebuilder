@@ -1,0 +1,5 @@
+Team: AI Lease Builder
+Website: https://aileasebuilder.com
+Developer: You + GPT-5.1
+Location: USA
+Purpose: Generate state-compliant residential leases using AI

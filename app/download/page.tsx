@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 
 type LeaseResult = {
   success?: boolean;
@@ -45,6 +46,15 @@ export default function DownloadLeasePage() {
   const [leaseData, setLeaseData] = useState<LeaseResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Download Your Residential Lease",
+    url: "https://aileasebuilder.com/download",
+    description:
+      "Download your generated residential lease in PDF, DOCX, HTML, or Markdown format. Includes a printable tenant checklist.",
+  };
 
   useEffect(() => {
     try {
@@ -154,6 +164,12 @@ export default function DownloadLeasePage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#020617] max-w-3xl mx-auto px-4 py-20 text-gray-300">
+        <Script
+          id="download-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+
         <h1 className="text-3xl font-bold mb-4 text-white">
           Preparing your lease…
         </h1>
@@ -165,6 +181,12 @@ export default function DownloadLeasePage() {
   if (error || !leaseData) {
     return (
       <main className="min-h-screen bg-[#020617] max-w-3xl mx-auto px-4 py-20 text-gray-300">
+        <Script
+          id="download-schema"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+
         <div className="bg-[#111827] border border-white/10 rounded-xl p-8 shadow-xl backdrop-blur">
           <h1 className="text-3xl font-bold mb-4 text-white">No Lease Found</h1>
           <p className="text-red-400 mb-6">
@@ -183,11 +205,29 @@ export default function DownloadLeasePage() {
 
   return (
     <main className="min-h-screen bg-[#020617] max-w-4xl mx-auto px-4 py-16 text-gray-300">
+      <Script
+        id="download-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+
       <div className="bg-[#111827] border border-white/10 rounded-xl p-10 shadow-xl backdrop-blur">
+
         <h1 className="text-4xl font-bold text-white mb-3">Your Lease Is Ready</h1>
+
+        <p className="text-gray-400 mb-3">
+          Your residential lease has been generated successfully.
+        </p>
+
+        {/* ✅ INTERNAL LINK ADDED */}
         <p className="text-gray-400 mb-10">
-          Your residential lease has been generated successfully. Download it in
-          any of the available formats.
+          Need another lease?{" "}
+          <a
+            href="/generate-lease"
+            className="text-cyan-300 hover:underline underline-offset-2"
+          >
+            Generate a new one
+          </a>.
         </p>
 
         {/* Downloads Section */}

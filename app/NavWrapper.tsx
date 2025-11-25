@@ -35,6 +35,16 @@ export default function NavWrapper() {
             FAQ
           </a>
 
+          {/* ✅ Added About */}
+          <a href="/about" className="text-gray-300 hover:text-white transition">
+            About
+          </a>
+
+          {/* ✅ Added Contact */}
+          <a href="/contact" className="text-gray-300 hover:text-white transition">
+            Contact
+          </a>
+
           {/* Logged OUT */}
           <SignedOut>
             <a

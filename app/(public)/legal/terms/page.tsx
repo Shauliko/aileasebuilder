@@ -1,3 +1,5 @@
+import Script from "next/script"; // already present
+
 const FALLBACK_TERMS_HTML = `
 <h2>Terms of Service</h2>
 <p>AI Lease Builder ("we", "us", "our") provides tools that help users draft, format, and export residential lease agreements and related documents. By using this service, you agree to these Terms of Service.</p>
@@ -27,13 +29,43 @@ export default async function TermsPage() {
       ? data.legal.termsUrl
       : FALLBACK_TERMS_HTML;
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Terms of Service",
+    url: "https://aileasebuilder.com/legal/terms",
+    description:
+      "Review the Terms of Service for AI Lease Builder. Understand your rights, responsibilities, and limitations when using our platform to generate residential leases.",
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 text-gray-200">
+
+      {/* SEO Structured Data */}
+      <Script
+        id="terms-schema"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      />
+
       <h1 className="text-3xl font-bold mb-6">Terms of Service</h1>
+
       <div
         className="prose prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+
+      {/* ✅ INTERNAL LINK ADDED — SURGICAL */}
+      <p className="text-gray-400 text-sm mt-8">
+        Return to{" "}
+        <a
+          href="/"
+          className="text-cyan-300 hover:underline underline-offset-2"
+        >
+          Home
+        </a>
+        .
+      </p>
     </div>
   );
 }
