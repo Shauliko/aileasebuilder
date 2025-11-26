@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, ChangeEvent } from "react";
 import { marked } from "marked";
 
 export default function BlogNewPage() {
@@ -16,17 +16,46 @@ export default function BlogNewPage() {
   const [imagePrompt, setImagePrompt] = useState(""); // IMAGE PROMPT
   const [loadingImage, setLoadingImage] = useState(false); // IMAGE LOADING
 
-  // === NEW FOR B10 ===
+  // === SEO ===
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [loadingSEO, setLoadingSEO] = useState(false);
 
-  const createPost = async () => {
+  // ======================================================
+  // IMAGE UPLOAD HANDLER (RESTORED)
+  // ======================================================
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const body = new FormData();
+    body.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body,
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        setContent((prev) => prev + `\n![](${data.url})\n`);
+      } else {
+        alert("Upload failed");
+      }
+    } catch {
+      alert("Upload failed");
+    }
+  };
+
+  // ======================================================
+  // SAVE DRAFT
+  // ======================================================
+  const saveDraft = async () => {
     const res = await fetch("/api/admin/blog", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         slug,
         title,
@@ -37,7 +66,10 @@ export default function BlogNewPage() {
           .map((t) => t.trim())
           .filter(Boolean),
         featured,
-        publish_at: publishAt || null,
+
+        publish_at: null, // DRAFT
+        published_at: null, // DRAFT
+
         content,
         meta_title: metaTitle,
         meta_description: metaDescription,
@@ -45,7 +77,7 @@ export default function BlogNewPage() {
     });
 
     if (res.ok) {
-      alert("Post created");
+      alert("Draft saved");
       setSlug("");
       setTitle("");
       setDate("");
@@ -57,34 +89,102 @@ export default function BlogNewPage() {
       setMetaTitle("");
       setMetaDescription("");
     } else {
-      alert("Error creating post");
+      alert("Error saving draft");
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const body = new FormData();
-    body.append("file", file);
-
-    const res = await fetch("/api/upload", {
+  // ======================================================
+  // PUBLISH NOW
+  // ======================================================
+  const publishNow = async () => {
+    const res = await fetch("/api/admin/blog", {
       method: "POST",
-      body,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        date,
+        category,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        featured,
+
+        publish_at: null,
+        published_at: new Date().toISOString(), // PUBLISHED NOW
+
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+      }),
     });
 
-    const data = await res.json();
-
-    if (data.url) {
-      setContent((prev) => prev + `\n![](${data.url})\n`);
+    if (res.ok) {
+      alert("Post published");
+      setSlug("");
+      setTitle("");
+      setDate("");
+      setCategory("");
+      setTags("");
+      setFeatured(false);
+      setPublishAt("");
+      setContent("");
+      setMetaTitle("");
+      setMetaDescription("");
     } else {
-      alert("Upload failed");
+      alert("Error publishing");
     }
   };
 
   // ======================================================
-  //           AI AUTO-GENERATE BLOG POST BUTTON
+  // SCHEDULE PUBLISH
   // ======================================================
+  const schedulePublish = async () => {
+    const res = await fetch("/api/admin/blog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        date,
+        category,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        featured,
+
+        publish_at: publishAt || null,
+        published_at: null, // scheduled (not yet published)
+
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+      }),
+    });
+
+    if (res.ok) {
+      alert("Post scheduled");
+      setSlug("");
+      setTitle("");
+      setDate("");
+      setCategory("");
+      setTags("");
+      setFeatured(false);
+      setPublishAt("");
+      setContent("");
+      setMetaTitle("");
+      setMetaDescription("");
+    } else {
+      alert("Error scheduling post");
+    }
+  };
+
+  // ======================================================
+  // AI GENERATION BUTTONS (unchanged)
+  // ======================================================
+
   const generateAI = async () => {
     try {
       setLoadingAI(true);
@@ -120,9 +220,6 @@ export default function BlogNewPage() {
     }
   };
 
-  // ======================================================
-  //           AI IMAGE GENERATION (B9)
-  // ======================================================
   const generateImage = async () => {
     if (!imagePrompt.trim()) {
       alert("Enter an image prompt");
@@ -134,9 +231,7 @@ export default function BlogNewPage() {
 
       const res = await fetch("/api/admin/generate-image", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: imagePrompt }),
       });
 
@@ -156,9 +251,6 @@ export default function BlogNewPage() {
     }
   };
 
-  // ======================================================
-  //           AI SEO METADATA GENERATION (B10)
-  // ======================================================
   const generateSEO = async () => {
     try {
       setLoadingSEO(true);
@@ -190,6 +282,9 @@ export default function BlogNewPage() {
     }
   };
 
+  // ======================================================
+  // RENDER
+  // ======================================================
   return (
     <main className="max-w-4xl mx-auto py-16 px-4">
       <h1 className="text-3xl font-bold mb-8">Create Blog Post</h1>
@@ -278,7 +373,6 @@ export default function BlogNewPage() {
             onChange={(e) => setCategory(e.target.value)}
           />
 
-          {/* TAGS */}
           <input
             className="border p-2 w-full"
             placeholder="Tags (comma separated: landlord, lease, real-estate)"
@@ -286,7 +380,6 @@ export default function BlogNewPage() {
             onChange={(e) => setTags(e.target.value)}
           />
 
-          {/* FEATURED */}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -296,7 +389,6 @@ export default function BlogNewPage() {
             <span>Featured Post</span>
           </label>
 
-          {/* SCHEDULED PUBLISH DATE */}
           <div className="space-y-1">
             <label className="text-sm font-medium block">
               Publish At (optional)
@@ -308,8 +400,7 @@ export default function BlogNewPage() {
               onChange={(e) => setPublishAt(e.target.value)}
             />
             <p className="text-xs text-gray-500">
-              Leave empty to publish immediately. Set a future date/time to
-              schedule.
+              Leave empty for Publish Now, or Save Draft.
             </p>
           </div>
 
@@ -327,11 +418,28 @@ export default function BlogNewPage() {
             className="border p-2 w-full"
           />
 
+          {/* ----------------- DRAFT BUTTON ----------------- */}
           <button
-            onClick={createPost}
-            className="bg-black text-white px-4 py-2"
+            onClick={saveDraft}
+            className="bg-gray-700 text-white px-4 py-2 mr-4"
           >
-            Publish
+            Save Draft
+          </button>
+
+          {/* ----------------- PUBLISH NOW ----------------- */}
+          <button
+            onClick={publishNow}
+            className="bg-black text-white px-4 py-2 mr-4"
+          >
+            Publish Now
+          </button>
+
+          {/* ----------------- SCHEDULE ----------------- */}
+          <button
+            onClick={schedulePublish}
+            className="bg-blue-600 text-white px-4 py-2"
+          >
+            Schedule Publish
           </button>
         </div>
 
@@ -339,9 +447,7 @@ export default function BlogNewPage() {
         <div className="border p-4 rounded bg-white overflow-auto prose max-w-none">
           <h2 className="text-xl font-bold mb-4">Preview</h2>
           <div
-            dangerouslySetInnerHTML={{
-              __html: marked.parse(content || ""),
-            }}
+            dangerouslySetInnerHTML={{ __html: marked.parse(content || "") }}
           />
         </div>
       </div>

@@ -19,6 +19,7 @@ export async function generateMetadata(props: any) {
 
   const post = getPost(slug);
 
+  // If post doesn't exist → 404 metadata
   if (!post) {
     return {
       title: "Post Not Found",
@@ -26,6 +27,27 @@ export async function generateMetadata(props: any) {
     };
   }
 
+  // ================================
+  // DRAFT + FUTURE SCHEDULED BLOCK
+  // ================================
+  const now = Date.now();
+
+  const isDraft =
+    post.published_at === null && (post.publish_at === null || post.publish_at === "");
+
+  const isScheduledFuture =
+    post.published_at === null &&
+    post.publish_at &&
+    new Date(post.publish_at).getTime() > now;
+
+  if (isDraft || isScheduledFuture) {
+    return {
+      title: "Post Not Found",
+      description: "This blog post does not exist.",
+    };
+  }
+
+  // Otherwise, auto-publish if needed
   const seoTitle =
     post.meta_title && post.meta_title.trim() !== ""
       ? post.meta_title
@@ -52,6 +74,7 @@ export default async function BlogPostPage(props: any) {
 
   const post = getPost(slug);
 
+  // If file doesn't exist → 404 page
   if (!post) {
     return (
       <main className="max-w-3xl mx-auto py-16 px-4">
@@ -61,10 +84,42 @@ export default async function BlogPostPage(props: any) {
     );
   }
 
+  // ================================
+  // DRAFT + FUTURE SCHEDULED BLOCK
+  // ================================
+  const now = Date.now();
+
+  const isDraft =
+    post.published_at === null &&
+    (post.publish_at === null || post.publish_at === "");
+
+  const isScheduledFuture =
+    post.published_at === null &&
+    post.publish_at &&
+    new Date(post.publish_at).getTime() > now;
+
+  if (isDraft || isScheduledFuture) {
+    return (
+      <main className="max-w-3xl mx-auto py-16 px-4">
+        <h1 className="text-4xl font-bold mb-4">Not Found</h1>
+        <p>Post does not exist.</p>
+      </main>
+    );
+  }
+
+  // ================================
+  // AUTO-PUBLISH SCHEDULED POSTS
+  // (Rendered correctly even though JSON is unchanged)
+  // ================================
+  const effectiveDate =
+    post.published_at ||
+    (post.publish_at && new Date(post.publish_at).toISOString()) ||
+    post.date;
+
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
       <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
-      <p className="text-gray-600 text-sm mb-2">{post.date}</p>
+      <p className="text-gray-600 text-sm mb-2">{effectiveDate}</p>
 
       {post.category && (
         <p className="text-gray-500 text-sm mb-3">

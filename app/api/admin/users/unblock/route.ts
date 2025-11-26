@@ -2,23 +2,18 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/clerk-sdk-node";
 
-// -----------------------------
-// POST — Block / Unblock user (ADMIN ONLY)
-// -----------------------------
+// --------------------------------------------
+// POST — Unblock user (ADMIN ONLY)
+// --------------------------------------------
 export async function POST(req: Request) {
   try {
-    // 🔒 AUTH — Admin only
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId: targetId, blocked } = await req.json();
+    const { userId: targetId } = await req.json();
 
-    // Validate input
     if (!targetId || typeof targetId !== "string") {
       return NextResponse.json(
         { error: "Missing or invalid userId" },
@@ -26,24 +21,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prevent self-blocking (security best practice)
     if (targetId === userId) {
       return NextResponse.json(
-        { error: "You cannot block yourself" },
+        { error: "You cannot unblock yourself" },
         { status: 400 }
       );
     }
 
-    // Update user metadata
     await clerkClient.users.updateUserMetadata(targetId, {
-      publicMetadata: { blocked: !!blocked },
+      publicMetadata: { blocked: false },
     });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("BLOCK USER ERROR:", err);
+    console.error("UNBLOCK ERROR:", err);
     return NextResponse.json(
-      { error: "Failed to update user block status" },
+      { error: "Failed to unblock user" },
       { status: 500 }
     );
   }

@@ -65,7 +65,6 @@ export default function BlogSearchClient({ posts }: { posts: Post[] }) {
               {post.category && <> · {post.category}</>}
             </p>
 
-            {/* TAGS */}
             {post.tags?.length ? (
               <div className="flex flex-wrap gap-2 mt-2">
                 {post.tags.map((tag) => (

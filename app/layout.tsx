@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import NavWrapper from "./NavWrapper";
 import Script from "next/script";
+import CookieBanner from "./components/CookieBanner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -123,6 +124,8 @@ export default function RootLayout({
               </a>
             </div>
           </footer>
+
+          <CookieBanner />
         </body>
       </html>
     </ClerkProvider>

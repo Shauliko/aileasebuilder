@@ -14,7 +14,10 @@ export default function BlogEditPage({ params }: any) {
   const [publishAt, setPublishAt] = useState(""); // SCHEDULED
   const [content, setContent] = useState("");
 
-  // === NEW FOR B10 SEO ===
+  // NEW: For Draft Mode (published_at)
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
+
+  // === SEO ===
   const [metaTitle, setMetaTitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
   const [loadingSEO, setLoadingSEO] = useState(false);
@@ -29,16 +32,119 @@ export default function BlogEditPage({ params }: any) {
           setCategory(data.post.category || "");
           setTags((data.post.tags || []).join(", "));
           setFeatured(!!data.post.featured);
+
+          // Scheduling
           setPublishAt(data.post.publish_at || "");
+
+          // Draft Mode
+          setPublishedAt(data.post.published_at ?? null);
+
           setContent(data.post.content);
 
-          // === LOAD SEO FIELDS ===
+          // SEO
           setMetaTitle(data.post.meta_title || "");
           setMetaDescription(data.post.meta_description || "");
         }
       });
   }, [slug]);
 
+  // ======================================================
+  // SAVE DRAFT (published_at = null)
+  // ======================================================
+  const saveDraft = async () => {
+    const res = await fetch("/api/admin/blog", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        date,
+        category,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        featured,
+
+        publish_at: null,
+        published_at: null, // DRAFT
+
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+      }),
+    });
+
+    if (res.ok) alert("Draft saved");
+    else alert("Error saving draft");
+  };
+
+  // ======================================================
+  // PUBLISH NOW (published_at = now)
+  // ======================================================
+  const publishNow = async () => {
+    const res = await fetch("/api/admin/blog", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        date,
+        category,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        featured,
+
+        publish_at: null,
+        published_at: new Date().toISOString(), // PUBLISH NOW
+
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+      }),
+    });
+
+    if (res.ok) alert("Post published");
+    else alert("Error publishing");
+  };
+
+  // ======================================================
+  // UPDATE SCHEDULE (publish_at = datetime)
+  // ======================================================
+  const updateSchedule = async () => {
+    const res = await fetch("/api/admin/blog", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        date,
+        category,
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        featured,
+
+        publish_at: publishAt || null,
+        published_at: null, // Scheduled posts are NOT published yet
+
+        content,
+        meta_title: metaTitle,
+        meta_description: metaDescription,
+      }),
+    });
+
+    if (res.ok) alert("Schedule updated");
+    else alert("Error updating schedule");
+  };
+
+  // ======================================================
+  // SAVE (General Save - does NOT publish)
+  // Preserves original behavior for compatibility
+  // ======================================================
   const save = async () => {
     const res = await fetch("/api/admin/blog", {
       method: "PUT",
@@ -55,7 +161,10 @@ export default function BlogEditPage({ params }: any) {
           .map((t) => t.trim())
           .filter(Boolean),
         featured,
+
         publish_at: publishAt || null,
+        published_at: publishedAt, // preserve existing state
+
         content,
         meta_title: metaTitle,
         meta_description: metaDescription,
@@ -193,11 +302,40 @@ export default function BlogEditPage({ params }: any) {
             onChange={(e) => setContent(e.target.value)}
           />
 
+          {/* ======================================================
+              BUTTONS
+            ====================================================== */}
+
+          {/* Save (does not change publish state) */}
           <button
             onClick={save}
-            className="bg-black text-white px-4 py-2"
+            className="bg-gray-700 text-white px-4 py-2 mr-3"
           >
             Save
+          </button>
+
+          {/* Save Draft */}
+          <button
+            onClick={saveDraft}
+            className="bg-blue-600 text-white px-4 py-2 mr-3"
+          >
+            Save Draft
+          </button>
+
+          {/* Publish Now */}
+          <button
+            onClick={publishNow}
+            className="bg-black text-white px-4 py-2 mr-3"
+          >
+            Publish Now
+          </button>
+
+          {/* Update Schedule */}
+          <button
+            onClick={updateSchedule}
+            className="bg-orange-600 text-white px-4 py-2"
+          >
+            Update Schedule
           </button>
         </div>
 

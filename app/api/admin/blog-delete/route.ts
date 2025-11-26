@@ -1,14 +1,30 @@
 import { NextResponse, NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
+import { auth } from "@clerk/nextjs/server";
 
 const postsDir = path.join(process.cwd(), "content/posts");
 
+// Validate slug characters
+function isValidSlug(slug: string) {
+  return /^[a-zA-Z0-9-_]+$/.test(slug);
+}
+
 // -----------------------------
-// DELETE POST
+// DELETE POST (ADMIN ONLY)
 // -----------------------------
 export async function DELETE(request: NextRequest) {
   try {
+    // 🔒 AUTH — Protect route
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Parse body
     const { slug } = await request.json();
 
     if (!slug || typeof slug !== "string") {
@@ -18,9 +34,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Sanitize
+    if (!isValidSlug(slug)) {
+      return NextResponse.json(
+        { error: "Invalid slug format" },
+        { status: 400 }
+      );
+    }
+
     const filePath = path.join(postsDir, `${slug}.json`);
 
-    // Does file exist?
+    // Check existence
     if (!fs.existsSync(filePath)) {
       return NextResponse.json(
         { error: "Post not found" },
@@ -28,7 +52,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete the file
+    // Delete
     fs.unlinkSync(filePath);
 
     return NextResponse.json({ success: true });

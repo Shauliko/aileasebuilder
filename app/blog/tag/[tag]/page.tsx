@@ -3,22 +3,24 @@ import Link from "next/link";
 
 export function generateStaticParams() {
   const posts = getAllPosts();
-  const categories = Array.from(new Set(posts.map((p) => p.category)));
-  return categories.map((c) => ({ category: c }));
+  const tags = Array.from(
+    new Set(
+      posts.flatMap((p) =>
+        Array.isArray(p.tags) ? p.tags : []
+      )
+    )
+  );
+  return tags.map((t) => ({ tag: t }));
 }
 
-export default function CategoryPage({ params }: { params: { category: string } }) {
+export default function TagPage({ params }: { params: { tag: string } }) {
   const now = Date.now();
 
-  // Load everything
   const all = getAllPosts();
 
-  // ================================
-  // FILTER: Only show published posts
-  // ================================
   const posts = all
     .map((p: any) => {
-      // Auto-publish scheduled posts that have passed
+      // Auto-publish scheduled posts whose time has passed
       if (p.published_at === null && p.publish_at) {
         const ts = new Date(p.publish_at).getTime();
         if (ts <= now) {
@@ -31,12 +33,17 @@ export default function CategoryPage({ params }: { params: { category: string } 
       }
       return p;
     })
-    .filter((p: any) => p.category === params.category)
     .filter((p: any) => {
+      // Must contain the tag
+      if (!Array.isArray(p.tags)) return false;
+      if (!p.tags.includes(params.tag)) return false;
+
+      // Draft check
       const isDraft =
         p.published_at === null &&
         (p.publish_at === null || p.publish_at === "");
 
+      // Future scheduled check
       const isScheduledFuture =
         p.published_at === null &&
         p.publish_at &&
@@ -50,9 +57,11 @@ export default function CategoryPage({ params }: { params: { category: string } 
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
-      <h1 className="text-4xl font-bold mb-8">
-        Category: {params.category}
-      </h1>
+      <h1 className="text-4xl font-bold mb-8">Tag: #{params.tag}</h1>
+
+      {posts.length === 0 && (
+        <p className="text-gray-400">No posts found for this tag.</p>
+      )}
 
       <ul className="space-y-6">
         {posts.map((post: any) => (

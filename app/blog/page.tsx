@@ -5,14 +5,45 @@ import BlogSearchClient from "./BlogSearchClient";
 import Link from "next/link";
 
 export default async function BlogPage() {
-  const posts = getAllPosts().sort((a: any, b: any) => {
-    const da = new Date(a.date || "").getTime();
-    const db = new Date(b.date || "").getTime();
-    return db - da;
+  const allPosts = getAllPosts()
+    .map((p: any) => {
+      // AUTO-PUBLISH scheduled posts whose time has passed
+      if (p.published_at === null && p.publish_at) {
+        const ts = new Date(p.publish_at).getTime();
+        if (ts <= Date.now()) {
+          return {
+            ...p,
+            published_at: p.publish_at, // mark as published
+            publish_at: null,
+          };
+        }
+      }
+      return p;
+    })
+    .sort((a: any, b: any) => {
+      const da = new Date(a.date || "").getTime();
+      const db = new Date(b.date || "").getTime();
+      return db - da;
+    });
+
+  // ================================
+  // DRAFT + SCHEDULED FILTERING
+  // ================================
+  const posts = allPosts.filter((p: any) => {
+    // 1. Draft = no publish dates at all
+    if (!p.published_at && !p.publish_at) return false;
+
+    // 2. Scheduled for future
+    if (!p.published_at && p.publish_at) {
+      const ts = new Date(p.publish_at).getTime();
+      if (ts > Date.now()) return false; // hide scheduled
+    }
+
+    return true;
   });
 
-  const featured = posts.filter((p) => p.featured);
-  const regular = posts.filter((p) => !p.featured);
+  const featured = posts.filter((p: any) => p.featured);
+  const regular = posts.filter((p: any) => !p.featured);
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
@@ -28,7 +59,7 @@ export default async function BlogPage() {
           <h2 className="text-2xl font-bold mb-4">Featured Posts</h2>
 
           <ul className="space-y-6">
-            {featured.map((post) => (
+            {featured.map((post: any) => (
               <li
                 key={post.slug}
                 className="border border-yellow-500/30 rounded-lg p-4 bg-yellow-500/5"
@@ -63,7 +94,7 @@ export default async function BlogPage() {
         </section>
       )}
 
-      {/* SEARCH + ALL POSTS LIST (still includes featured internally but UI separates them) */}
+      {/* SEARCH + ALL POSTS LIST */}
       <BlogSearchClient posts={posts as any} />
     </main>
   );

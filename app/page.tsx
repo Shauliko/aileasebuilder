@@ -1,7 +1,5 @@
-// app/page.tsx (SERVER COMPONENT — DO NOT ADD "use client")
-
 import Link from "next/link";
-import { getAllPosts } from "@/lib/getPost"; // ✅ ADDED FOR FEATURED POSTS
+import { getAllPosts } from "@/lib/getPost";
 
 export const metadata = {
   title: "AI Lease Builder – Generate Legally-Compliant Leases in Seconds",
@@ -10,9 +8,42 @@ export const metadata = {
 };
 
 export default function HomePage() {
-  // ✅ NEW: LOAD FEATURED POSTS (server-side)
+  // ================================
+  // LOAD + FILTER FEATURED POSTS
+  // ================================
+  const now = Date.now();
+
   const posts = getAllPosts()
-    .filter((p) => p.featured)
+    .map((p: any) => {
+      // Auto-publish scheduled posts whose time has passed
+      if (p.published_at === null && p.publish_at) {
+        const ts = new Date(p.publish_at).getTime();
+        if (ts <= now) {
+          return {
+            ...p,
+            published_at: p.publish_at,
+            publish_at: null,
+          };
+        }
+      }
+      return p;
+    })
+    .filter((p: any) => p.featured)
+    .filter((p: any) => {
+      const isDraft =
+        p.published_at === null &&
+        (p.publish_at === null || p.publish_at === "");
+
+      const isScheduledFuture =
+        p.published_at === null &&
+        p.publish_at &&
+        new Date(p.publish_at).getTime() > now;
+
+      // Hide drafts + scheduled future posts
+      if (isDraft || isScheduledFuture) return false;
+
+      return true;
+    })
     .sort((a: any, b: any) => {
       const da = new Date(a.date || "").getTime();
       const db = new Date(b.date || "").getTime();
@@ -77,7 +108,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ⭐ FEATURED BLOG POSTS — INSERTED HERE (Surgical, 100% new) */}
+      {/* ⭐ FEATURED BLOG POSTS */}
       {posts.length > 0 && (
         <section className="py-20 bg-[#0F162E] border-t border-white/5">
           <div className="max-w-6xl mx-auto px-6">
@@ -121,7 +152,8 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* FEATURES (Unmodified) */}
+      {/* REMAINDER OF PAGE (UNCHANGED) */}
+      {/* FEATURES */}
       <section className="py-24 bg-[#0F162E]">
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-16">
@@ -193,7 +225,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* HOW IT WORKS (Unmodified) */}
+      {/* HOW IT WORKS */}
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-14 bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-transparent">
@@ -261,7 +293,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER (Unmodified) */}
+      {/* FOOTER */}
       <footer className="py-10 border-t border-white/10 text-center text-gray-400 bg-[#0A0F1F]">
         © {new Date().getFullYear()} AI Lease Builder — The fastest way to
         generate a compliant residential lease.

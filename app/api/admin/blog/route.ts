@@ -1,27 +1,46 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { auth } from "@clerk/nextjs/server";
 
 const postsDir = path.join(process.cwd(), "content/posts");
+
+function isValidSlug(slug: string) {
+  return /^[a-zA-Z0-9-_]+$/.test(slug);
+}
 
 // -------------------------------------------------------
 // GET — Fetch a single post: /api/admin/blog?slug=abc
 // -------------------------------------------------------
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const slug = searchParams.get("slug");
+  try {
+    const { userId } = await auth(); // FIXED
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!slug) {
-    return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const slug = searchParams.get("slug");
+
+    if (!slug) {
+      return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+    }
+
+    if (!isValidSlug(slug)) {
+      return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
+    }
+
+    const file = path.join(postsDir, `${slug}.json`);
+
+    if (!fs.existsSync(file)) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const post = JSON.parse(fs.readFileSync(file, "utf-8"));
+    return NextResponse.json({ post });
+  } catch (err) {
+    return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
-
-  const file = path.join(postsDir, `${slug}.json`);
-  if (!fs.existsSync(file)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const post = JSON.parse(fs.readFileSync(file, "utf-8"));
-  return NextResponse.json({ post });
 }
 
 // -------------------------------------------------------
@@ -29,6 +48,11 @@ export async function GET(req: Request) {
 // -------------------------------------------------------
 export async function POST(req: Request) {
   try {
+    const { userId } = await auth(); // FIXED
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       slug,
@@ -37,10 +61,11 @@ export async function POST(req: Request) {
       category,
       tags,
       featured,
-      publish_at,            // ✅ NEW
+      publish_at,
+      published_at,
       content,
-      meta_title,            // ✅ NEW
-      meta_description,      // ✅ NEW
+      meta_title,
+      meta_description,
     } = body;
 
     if (!slug || !title || !date || !content) {
@@ -48,6 +73,10 @@ export async function POST(req: Request) {
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
+
+    if (!isValidSlug(slug)) {
+      return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
 
     const file = path.join(postsDir, `${slug}.json`);
@@ -58,16 +87,18 @@ export async function POST(req: Request) {
       category: category || "",
       tags: Array.isArray(tags) ? tags : [],
       featured: !!featured,
-      publish_at: publish_at || null,        // ✅ NEW
+
+      published_at: published_at ?? null,
+      publish_at: publish_at ?? null,
+
       content,
-      meta_title: meta_title || "",          // ✅ NEW
-      meta_description: meta_description || "" // ✅ NEW
+      meta_title: meta_title ?? "",
+      meta_description: meta_description ?? "",
     };
 
     fs.writeFileSync(file, JSON.stringify(postData, null, 2));
 
     return NextResponse.json({ success: true });
-
   } catch (err) {
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
@@ -78,6 +109,11 @@ export async function POST(req: Request) {
 // -------------------------------------------------------
 export async function PUT(req: Request) {
   try {
+    const { userId } = await auth(); // FIXED
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       slug,
@@ -86,10 +122,11 @@ export async function PUT(req: Request) {
       category,
       tags,
       featured,
-      publish_at,            // ✅ NEW
+      publish_at,
+      published_at,
       content,
-      meta_title,            // ✅ NEW
-      meta_description,      // ✅ NEW
+      meta_title,
+      meta_description,
     } = body;
 
     if (!slug || !title || !date || !content) {
@@ -99,13 +136,14 @@ export async function PUT(req: Request) {
       );
     }
 
+    if (!isValidSlug(slug)) {
+      return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
+    }
+
     const file = path.join(postsDir, `${slug}.json`);
 
     if (!fs.existsSync(file)) {
-      return NextResponse.json(
-        { error: "Post not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
     const postData = {
@@ -114,16 +152,18 @@ export async function PUT(req: Request) {
       category: category || "",
       tags: Array.isArray(tags) ? tags : [],
       featured: !!featured,
-      publish_at: publish_at || null,        // NEW
+
+      published_at: published_at ?? null,
+      publish_at: publish_at ?? null,
+
       content,
-      meta_title: meta_title || "",          // NEW
-      meta_description: meta_description || "" // NEW
+      meta_title: meta_title ?? "",
+      meta_description: meta_description ?? "",
     };
 
     fs.writeFileSync(file, JSON.stringify(postData, null, 2));
 
     return NextResponse.json({ success: true });
-
   } catch (err) {
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }

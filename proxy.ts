@@ -1,7 +1,21 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+// Protect all /admin/* routes
+const isProtectedRoute = createRouteMatcher(["/admin(.*)"]);
+
+export default clerkMiddleware(async (auth, req) => {
+  // auth is a function → returns a Promise → must await
+  const session = await auth(); 
+  const userId = session.userId;
+
+  if (isProtectedRoute(req) && !userId) {
+    return session.redirectToSignIn({ returnBackUrl: req.url });
+  }
+});
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  matcher: [
+    "/((?!_next|.*\\..*).*)",
+    "/",
+  ],
 };
