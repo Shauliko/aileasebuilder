@@ -9,9 +9,9 @@ import { getAllPosts } from "@/lib/getPost";
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = context.params;
+  const { slug } = await context.params;
 
   const all = getAllPosts();
   const post = all.find((p: any) => p.slug === slug);
