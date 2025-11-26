@@ -15,12 +15,20 @@ export function getAllPosts() {
     const data = JSON.parse(
       fs.readFileSync(path.join(postsDir, file), "utf-8")
     );
-    return { slug, ...data };
+
+    // ➜ BACKWARD COMPATIBILITY FIX: Ensure new fields exist
+    return {
+      slug,
+      publish_at: data.publish_at ?? null,
+      meta_title: data.meta_title ?? "",
+      meta_description: data.meta_description ?? "",
+      ...data,
+    };
   });
 }
 
 /**
- * Load ONE post (admin + public wrapper)
+ * Load ONE post (admin + public)
  * Includes rendered HTML from markdown.
  */
 export function getPost(slug: string) {
@@ -29,10 +37,14 @@ export function getPost(slug: string) {
 
   const post = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 
-  const html = marked.parse(post.content || "");
-
-  return {
+  // ➜ BACKWARD COMPATIBILITY FIX
+  const finalPost = {
+    publish_at: post.publish_at ?? null,
+    meta_title: post.meta_title ?? "",
+    meta_description: post.meta_description ?? "",
     ...post,
-    html,
+    html: marked.parse(post.content || ""),
   };
+
+  return finalPost;
 }

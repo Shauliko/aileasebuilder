@@ -1,29 +1,42 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
 
-export async function POST(req: Request) {
-  let body;
+const postsDir = path.join(process.cwd(), "content/posts");
 
+// -----------------------------
+// DELETE POST
+// -----------------------------
+export async function DELETE(request: NextRequest) {
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const { slug } = await request.json();
+
+    if (!slug || typeof slug !== "string") {
+      return NextResponse.json(
+        { error: "Missing or invalid slug" },
+        { status: 400 }
+      );
+    }
+
+    const filePath = path.join(postsDir, `${slug}.json`);
+
+    // Does file exist?
+    if (!fs.existsSync(filePath)) {
+      return NextResponse.json(
+        { error: "Post not found" },
+        { status: 404 }
+      );
+    }
+
+    // Delete the file
+    fs.unlinkSync(filePath);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    return NextResponse.json(
+      { error: "Server error deleting post" },
+      { status: 500 }
+    );
   }
-
-  const slug = body?.slug;
-
-  if (!slug) {
-    return NextResponse.json({ error: "Missing slug" }, { status: 400 });
-  }
-
-  const file = path.join(process.cwd(), "content/posts", `${slug}.json`);
-
-  if (!fs.existsSync(file)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  fs.unlinkSync(file);
-
-  return NextResponse.json({ success: true });
 }

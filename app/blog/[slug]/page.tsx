@@ -14,8 +14,10 @@ export function generateStaticParams() {
 }
 
 /** METADATA */
-export async function generateMetadata({ params }: any) {
-  const post = getPost(params.slug);
+export async function generateMetadata(props: any) {
+  const { slug } = await props.params; // REQUIRED in Next 16
+
+  const post = getPost(slug);
 
   if (!post) {
     return {
@@ -24,12 +26,10 @@ export async function generateMetadata({ params }: any) {
     };
   }
 
-  // ============================
-  // SEO OVERRIDE (B10)
-  // ============================
-  const seoTitle = post.meta_title && post.meta_title.trim() !== ""
-    ? post.meta_title
-    : post.title;
+  const seoTitle =
+    post.meta_title && post.meta_title.trim() !== ""
+      ? post.meta_title
+      : post.title;
 
   const seoDescription =
     post.meta_description && post.meta_description.trim() !== ""
@@ -47,8 +47,10 @@ export async function generateMetadata({ params }: any) {
 }
 
 /** PAGE */
-export default async function BlogPostPage({ params }: BlogPostProps) {
-  const post = getPost(params.slug);
+export default async function BlogPostPage(props: any) {
+  const { slug } = await props.params; // REQUIRED in Next 16
+
+  const post = getPost(slug);
 
   if (!post) {
     return (
@@ -64,7 +66,6 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
       <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
       <p className="text-gray-600 text-sm mb-2">{post.date}</p>
 
-      {/* CATEGORY */}
       {post.category && (
         <p className="text-gray-500 text-sm mb-3">
           Category:{" "}
@@ -77,7 +78,6 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
         </p>
       )}
 
-      {/* TAGS */}
       {post.tags?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-8">
           {post.tags.map((tag: string) => (
@@ -92,7 +92,6 @@ export default async function BlogPostPage({ params }: BlogPostProps) {
         </div>
       )}
 
-      {/* CONTENT */}
       <article
         className="prose"
         dangerouslySetInnerHTML={{ __html: post.html }}
