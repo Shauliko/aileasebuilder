@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import fs from "fs";
 import path from "path";
@@ -14,8 +14,8 @@ function isValidSlug(slug: string) {
 // /api/admin/blog-edit/[slug]
 // --------------------------------------------
 export async function GET(
-  req: Request,
-  { params }: { params: { slug: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const slug = params.slug;
+    const { slug } = await params;
 
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
@@ -50,8 +50,8 @@ export async function GET(
 // PUT — Save edits to a post
 // --------------------------------------------
 export async function PUT(
-  req: Request,
-  { params }: { params: { slug: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -59,7 +59,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const slug = params.slug;
+    const { slug } = await params;
 
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
