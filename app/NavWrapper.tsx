@@ -13,7 +13,6 @@ export default function NavWrapper() {
   return (
     <nav className="w-full border-b border-white/10 bg-[#050816]/90 backdrop-blur">
       <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        
         {/* Logo */}
         <a href="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-500 via-cyan-400 to-purple-500 flex items-center justify-center text-xs font-bold">
@@ -24,24 +23,46 @@ export default function NavWrapper() {
 
         {/* Right Side Navigation */}
         <div className="flex items-center gap-6 text-sm">
-
-          <a href="/generate-lease" className="text-gray-300 hover:text-white transition">
+          <a
+            href="/generate-lease"
+            className="text-gray-300 hover:text-white transition"
+          >
             Generate Lease
           </a>
-          <a href="/pricing" className="text-gray-300 hover:text-white transition">
+
+          <a
+            href="/pricing"
+            className="text-gray-300 hover:text-white transition"
+          >
             Pricing
           </a>
-          <a href="/faq" className="text-gray-300 hover:text-white transition">
+
+          {/* ✅ Blog link added */}
+          <a
+            href="/blog"
+            className="text-gray-300 hover:text-white transition"
+          >
+            Blog
+          </a>
+
+          <a
+            href="/faq"
+            className="text-gray-300 hover:text-white transition"
+          >
             FAQ
           </a>
 
-          {/* ✅ Added About */}
-          <a href="/about" className="text-gray-300 hover:text-white transition">
+          <a
+            href="/about"
+            className="text-gray-300 hover:text-white transition"
+          >
             About
           </a>
 
-          {/* ✅ Added Contact */}
-          <a href="/contact" className="text-gray-300 hover:text-white transition">
+          <a
+            href="/contact"
+            className="text-gray-300 hover:text-white transition"
+          >
             Contact
           </a>
 
@@ -65,7 +86,6 @@ export default function NavWrapper() {
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
-
         </div>
       </div>
     </nav>

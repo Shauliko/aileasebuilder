@@ -3,13 +3,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import NavWrapper from "./NavWrapper";
-import Script from "next/script"; // ✅ added for global schema.org
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// -----------------------------------------
-// ✅ GLOBAL SEO METADATA
-// -----------------------------------------
 export const metadata: Metadata = {
   metadataBase: new URL("https://aileasebuilder.com"),
   title: {
@@ -68,10 +65,6 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <head>
-          {/* -----------------------------------------
-              ✅ GLOBAL ORGANIZATION SCHEMA.ORG
-              Helps Google recognize your brand entity
-             ----------------------------------------- */}
           <Script
             id="org-schema"
             type="application/ld+json"
@@ -90,7 +83,9 @@ export default function RootLayout({
           />
         </head>
 
-        <body className={`${inter.className} bg-[#050816] text-white min-h-screen`}>
+        <body
+          className={`${inter.className} bg-[#050816] text-white min-h-screen`}
+        >
           <NavWrapper />
 
           <main className="w-full min-h-screen bg-[#050816] text-gray-300">
@@ -99,11 +94,33 @@ export default function RootLayout({
 
           <footer className="w-full border-t border-white/10 bg-[#050816]/90 backdrop-blur mt-10">
             <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center gap-6 text-sm text-gray-400">
-              <a href="/about" className="hover:text-white transition">About</a>
-              <a href="/contact" className="hover:text-white transition">Contact</a>
-              <a href="/legal/terms" className="hover:text-white transition">Terms</a>
-              <a href="/legal/privacy" className="hover:text-white transition">Privacy</a>
-              <a href="/legal/disclaimer" className="hover:text-white transition">Disclaimer</a>
+              <a href="/blog" className="hover:text-white transition">
+                Blog
+              </a>
+              <a href="/about" className="hover:text-white transition">
+                About
+              </a>
+              <a href="/contact" className="hover:text-white transition">
+                Contact
+              </a>
+              <a
+                href="/legal/terms"
+                className="hover:text-white transition"
+              >
+                Terms
+              </a>
+              <a
+                href="/legal/privacy"
+                className="hover:text-white transition"
+              >
+                Privacy
+              </a>
+              <a
+                href="/legal/disclaimer"
+                className="hover:text-white transition"
+              >
+                Disclaimer
+              </a>
             </div>
           </footer>
         </body>

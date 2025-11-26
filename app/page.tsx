@@ -1,6 +1,7 @@
 // app/page.tsx (SERVER COMPONENT — DO NOT ADD "use client")
 
 import Link from "next/link";
+import { getAllPosts } from "@/lib/getPost"; // ✅ ADDED FOR FEATURED POSTS
 
 export const metadata = {
   title: "AI Lease Builder – Generate Legally-Compliant Leases in Seconds",
@@ -9,8 +10,18 @@ export const metadata = {
 };
 
 export default function HomePage() {
+  // ✅ NEW: LOAD FEATURED POSTS (server-side)
+  const posts = getAllPosts()
+    .filter((p) => p.featured)
+    .sort((a: any, b: any) => {
+      const da = new Date(a.date || "").getTime();
+      const db = new Date(b.date || "").getTime();
+      return db - da;
+    });
+
   return (
     <main className="min-h-screen bg-[#0A0F1F] text-white">
+
       {/* HERO SECTION */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-cyan-500/20 blur-3xl" />
@@ -66,7 +77,51 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* ⭐ FEATURED BLOG POSTS — INSERTED HERE (Surgical, 100% new) */}
+      {posts.length > 0 && (
+        <section className="py-20 bg-[#0F162E] border-t border-white/5">
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-4xl font-bold mb-10 bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent">
+              Featured Blog Posts
+            </h2>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {posts.map((post) => (
+                <Link
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="block p-6 rounded-2xl bg-[#11182F] border border-yellow-400/30 hover:border-yellow-400/60 transition shadow-lg shadow-black/30"
+                >
+                  <h3 className="text-2xl font-semibold mb-2">{post.title}</h3>
+
+                  <p className="text-gray-400 text-sm mb-2">{post.date}</p>
+
+                  {post.category && (
+                    <p className="text-xs text-gray-500 mb-2">
+                      Category: {post.category}
+                    </p>
+                  )}
+
+                  {post.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {post.tags.map((tag: string) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 text-[10px] bg-yellow-600/20 text-yellow-300 rounded-md"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* FEATURES (Unmodified) */}
       <section className="py-24 bg-[#0F162E]">
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-4xl font-bold text-center mb-16">
@@ -138,7 +193,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* HOW IT WORKS (Unmodified) */}
       <section className="py-24">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="text-4xl font-bold mb-14 bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-transparent">
@@ -206,7 +261,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* FOOTER (Unmodified) */}
       <footer className="py-10 border-t border-white/10 text-center text-gray-400 bg-[#0A0F1F]">
         © {new Date().getFullYear()} AI Lease Builder — The fastest way to
         generate a compliant residential lease.
