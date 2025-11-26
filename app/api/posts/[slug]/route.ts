@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { getAllPosts } from "@/lib/getPost";
 
 /**
@@ -8,10 +8,10 @@ import { getAllPosts } from "@/lib/getPost";
  * - It is NOT scheduled for the future
  */
 export async function GET(
-  req: Request,
-  { params }: { params: { slug: string } }
+  request: NextRequest,
+  context: { params: { slug: string } }
 ) {
-  const { slug } = params;
+  const { slug } = context.params;
 
   const all = getAllPosts();
   const post = all.find((p: any) => p.slug === slug);
