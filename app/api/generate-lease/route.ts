@@ -4,11 +4,19 @@ import OpenAI from "openai";
 import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
 import { createDocxFromMarkdown } from "../utils/createDocx";
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
+import { Document, HeadingLevel, Paragraph, TextRun } from "docx";
 import { canGenerateLease, recordLeaseGeneration } from "../utils/usage";
 
 // 🔥 NEW — state compliance
 import { getComplianceForState } from "@/lib/getComplianceForState";
+
+// 🔥 NEW — Supabase (for logging FREE events)
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Ensure Node.js runtime (needed for crypto/Postgres)
 export const runtime = "nodejs";
@@ -60,7 +68,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // # H1
     if (trimmed.startsWith("# ")) {
       paragraphs.push(
         new Paragraph({
@@ -72,7 +79,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // ## H2
     if (trimmed.startsWith("## ")) {
       paragraphs.push(
         new Paragraph({
@@ -84,7 +90,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // Bullet list
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       paragraphs.push(
         new Paragraph({
@@ -95,7 +100,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // Normal paragraph
     paragraphs.push(
       new Paragraph({
         children: [new TextRun({ text: trimmed, size: 24 })],
@@ -176,7 +180,7 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------------------------------------
-    // 🔥 NEW — STATE COMPLIANCE INJECTION
+    // 🔥 STATE COMPLIANCE INJECTION
     // -----------------------------------------------------------
     const compliance = getComplianceForState(
       body.state || body.propertyState || "DEFAULT"
@@ -210,13 +214,6 @@ Word count target: 1500–3500 words.
 
 INPUT:
 ${JSON.stringify(body, null, 2)}
-
-OUTPUT FORMAT EXAMPLE:
-{
-  "lease_markdown": ".",
-  "addendums_markdown": [],
-  "checklist_markdown": "."
-}
 `;
 
     const english = await client.responses.create({
@@ -291,7 +288,6 @@ ${leaseMd}
       const tMd = tJson.markdown || "";
       const tHtml = await markdownToHtml(tMd);
 
-      // PDF: only for safer latin-languages
       let tPdfBase64: string | null = null;
       if (!unicodeLanguages.includes(lang)) {
         try {
@@ -302,7 +298,6 @@ ${leaseMd}
         }
       }
 
-      // DOCX (fallback paragraphs)
       const tDocxBuf = await createDocxFromMarkdown(tMd);
 
       translated.push({
@@ -315,10 +310,29 @@ ${leaseMd}
     }
 
     // -----------------------------------------------------------
-    // Record successful FREE lease usage (server-side)
+    // 🔥 RECORD SUCCESSFUL FREE LEASE GENERATION IN SUPABASE
     // -----------------------------------------------------------
-    
-      if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
+    if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
+      try {
+        await supabase.from("lease_events").insert({
+          user_id: emailFromBody || null,
+          email: emailFromBody || null,
+          type: "free",
+          amount: 0,
+          currency: "usd",
+          product: "free-generation",
+          lease_id: null,
+          stripe_session_id: null,
+          stripe_customer: null,
+          metadata: {
+            ip,
+            state: body.state || body.propertyState || null,
+          },
+        });
+      } catch (error) {
+        console.error("Supabase insert error (free generation):", error);
+      }
+
       await recordLeaseGeneration(emailFromBody || null, ip);
     }
 
