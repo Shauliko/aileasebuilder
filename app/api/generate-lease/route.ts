@@ -7,22 +7,82 @@ import { createDocxFromMarkdown } from "../utils/createDocx";
 import { Document, HeadingLevel, Paragraph, TextRun } from "docx";
 import { canGenerateLease, recordLeaseGeneration } from "../utils/usage";
 
-// 🔥 NEW — state compliance
+// 🔥 State compliance
 import { getComplianceForState } from "@/lib/getComplianceForState";
 
-// 🔥 NEW — Supabase (for logging FREE events)
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// 🔥 Postgres (Neon) – log FREE lease events into lease_events
+import { Pool } from "pg";
 
 // Ensure Node.js runtime (needed for crypto/Postgres)
 export const runtime = "nodejs";
 
 // -----------------------------------------------------------
-// PRIVILEGED USERS — can bypass free-tier limits & multilingual restriction
+// Neon / Postgres pool (for FREE events into lease_events)
+// -----------------------------------------------------------
+const databaseUrl = process.env.DATABASE_URL || "";
+
+const pool = databaseUrl
+  ? new Pool({
+      connectionString: databaseUrl,
+      max: 3,
+    })
+  : null;
+
+async function insertFreeLeaseEvent(params: {
+  email: string | null;
+  ip: string;
+  state: string | null;
+}) {
+  if (!pool) {
+    console.error(
+      "insertFreeLeaseEvent: DATABASE_URL not configured; skipping lease_events insert."
+    );
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query(
+      `
+      INSERT INTO lease_events (
+        user_id,
+        email,
+        type,
+        amount,
+        currency,
+        product,
+        lease_id,
+        stripe_session_id,
+        stripe_customer,
+        metadata
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    `,
+      [
+        params.email,
+        params.email,
+        "free", // type
+        0, // amount
+        "usd", // currency
+        "free-generation", // product
+        null, // lease_id
+        null, // stripe_session_id
+        null, // stripe_customer
+        {
+          ip: params.ip,
+          state: params.state,
+        },
+      ]
+    );
+  } catch (err) {
+    console.error("Neon insert error (free lease event):", err);
+  } finally {
+    client.release();
+  }
+}
+
+// -----------------------------------------------------------
+// PRIVILEGED USERS — can bypass free-tier & multilingual limits
 // -----------------------------------------------------------
 const privilegedUsers: string[] =
   process.env.PRIVILEGED_USERS?.split(",").map((u) => u.trim()) || [];
@@ -68,6 +128,7 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
+    // # H1
     if (trimmed.startsWith("# ")) {
       paragraphs.push(
         new Paragraph({
@@ -79,6 +140,7 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
+    // ## H2
     if (trimmed.startsWith("## ")) {
       paragraphs.push(
         new Paragraph({
@@ -90,6 +152,7 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
+    // Bullet list
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       paragraphs.push(
         new Paragraph({
@@ -100,6 +163,7 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
+    // Normal paragraph
     paragraphs.push(
       new Paragraph({
         children: [new TextRun({ text: trimmed, size: 24 })],
@@ -111,6 +175,9 @@ function convertMarkdownToDocxParagraphs(md: string) {
   return paragraphs;
 }
 
+// ==========================================================
+// MAIN HANDLER
+// ==========================================================
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -214,6 +281,13 @@ Word count target: 1500–3500 words.
 
 INPUT:
 ${JSON.stringify(body, null, 2)}
+
+OUTPUT FORMAT EXAMPLE:
+{
+  "lease_markdown": ".",
+  "addendums_markdown": [],
+  "checklist_markdown": "."
+}
 `;
 
     const english = await client.responses.create({
@@ -288,6 +362,7 @@ ${leaseMd}
       const tMd = tJson.markdown || "";
       const tHtml = await markdownToHtml(tMd);
 
+      // PDF: only for safer latin-languages
       let tPdfBase64: string | null = null;
       if (!unicodeLanguages.includes(lang)) {
         try {
@@ -298,6 +373,7 @@ ${leaseMd}
         }
       }
 
+      // DOCX (fallback paragraphs)
       const tDocxBuf = await createDocxFromMarkdown(tMd);
 
       translated.push({
@@ -310,29 +386,16 @@ ${leaseMd}
     }
 
     // -----------------------------------------------------------
-    // 🔥 RECORD SUCCESSFUL FREE LEASE GENERATION IN SUPABASE
+    // RECORD SUCCESSFUL FREE LEASE GENERATION (Neon + usage table)
     // -----------------------------------------------------------
     if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
-      try {
-        await supabase.from("lease_events").insert({
-          user_id: emailFromBody || null,
-          email: emailFromBody || null,
-          type: "free",
-          amount: 0,
-          currency: "usd",
-          product: "free-generation",
-          lease_id: null,
-          stripe_session_id: null,
-          stripe_customer: null,
-          metadata: {
-            ip,
-            state: body.state || body.propertyState || null,
-          },
-        });
-      } catch (error) {
-        console.error("Supabase insert error (free generation):", error);
-      }
+      await insertFreeLeaseEvent({
+        email: emailFromBody || null,
+        ip,
+        state: body.state || body.propertyState || null,
+      });
 
+      // existing free-tier tracking
       await recordLeaseGeneration(emailFromBody || null, ip);
     }
 
