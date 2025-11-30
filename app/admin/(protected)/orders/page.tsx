@@ -21,7 +21,7 @@ export default function OrdersPage() {
 
     const params = new URLSearchParams({
       page: String(page),
-      limit: String(limit)
+      perPage: String(limit)
     });
 
     if (search.trim()) params.set("search", search.trim());
@@ -30,8 +30,9 @@ export default function OrdersPage() {
     const res = await fetch(`/api/admin/orders?${params.toString()}`);
     const data = await res.json();
 
-    setOrders(data.data || []);
-    setTotal(data.pagination?.total || 0);
+    // ✔ Corrected fields from API
+    setOrders(data.results || []);
+    setTotal(data.totalRows || 0);
 
     setLoading(false);
   }
@@ -55,7 +56,6 @@ export default function OrdersPage() {
 
       {/* FILTER BAR */}
       <div className="flex flex-wrap items-center gap-4 mb-8">
-
         {/* FILTER BUTTONS */}
         <div className="flex gap-2">
           <button
