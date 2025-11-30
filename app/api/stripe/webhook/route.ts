@@ -7,11 +7,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ─────────────────────────────────────────────
-// ENV VARIABLES (NO BUILD-TIME THROWS)
+// ENV (LOG AT COLD START)
 // ─────────────────────────────────────────────
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 const databaseUrl = process.env.DATABASE_URL || "";
+
+console.log("[WEBHOOK_INIT]", {
+  stripeSecretKey: stripeSecretKey ? stripeSecretKey.slice(0, 10) + "..." : "MISSING",
+  stripeWebhookSecret: stripeWebhookSecret ? "present" : "MISSING",
+  databaseUrl: databaseUrl ? "present" : "MISSING",
+});
 
 // ─────────────────────────────────────────────
 // STRIPE INIT
@@ -21,29 +27,29 @@ const stripe = new Stripe(stripeSecretKey, {
 });
 
 // ─────────────────────────────────────────────
-// POSTGRES INIT (NEON)
+// DB INIT
 // ─────────────────────────────────────────────
 const pool = new Pool({
   connectionString: databaseUrl,
+  ssl: { rejectUnauthorized: false },
   max: 3,
 });
 
-// Insert helper
-async function insertLeaseEvent(params: {
-  user_id: string | null;
-  email: string | null;
-  type: "paid" | "free";
-  amount: number;
-  currency: string;
-  product: string | null;
-  lease_id: string | null;
-  stripe_session_id: string | null;
-  stripe_customer: string | null;
-  metadata: Record<string, any> | null;
-}) {
+// ─────────────────────────────────────────────
+// DB INSERT WITH LOGGING
+// ─────────────────────────────────────────────
+async function insertLeaseEvent(params: any) {
+  console.log("[DB] INSERT ATTEMPT", {
+    email: params.email,
+    amount: params.amount,
+    currency: params.currency,
+    session: params.stripe_session_id,
+  });
+
   const client = await pool.connect();
+
   try {
-    await client.query(
+    const result = await client.query(
       `
       INSERT INTO lease_events (
         user_id,
@@ -58,7 +64,8 @@ async function insertLeaseEvent(params: {
         metadata
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-    `,
+      RETURNING id
+      `,
       [
         params.user_id,
         params.email,
@@ -72,30 +79,31 @@ async function insertLeaseEvent(params: {
         params.metadata ?? {},
       ]
     );
+
+    console.log("[DB] INSERT SUCCESS", result.rows[0]);
+  } catch (err: any) {
+    console.error("[DB_ERROR]", err?.message || err);
+    throw err;
   } finally {
     client.release();
   }
 }
 
 // ─────────────────────────────────────────────
-// MAIN WEBHOOK HANDLER
+// MAIN HANDLER
 // ─────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  // Validate env at runtime (NOT build-time)
-  if (!stripeSecretKey || !stripeWebhookSecret) {
-    console.error("Missing Stripe environment variables");
-    return NextResponse.json(
-      { error: "Server misconfigured" },
-      { status: 500 }
-    );
-  }
+  console.log("[WEBHOOK] REQUEST RECEIVED");
 
-  if (!databaseUrl) {
-    console.error("Missing DATABASE_URL");
-    return NextResponse.json(
-      { error: "Database is not configured" },
-      { status: 500 }
-    );
+  // Soft env validation
+  if (!stripeSecretKey || !stripeWebhookSecret || !databaseUrl) {
+    console.error("[WEBHOOK] Missing env vars", {
+      stripeSecretKey: !!stripeSecretKey,
+      stripeWebhookSecret: !!stripeWebhookSecret,
+      databaseUrl: !!databaseUrl,
+    });
+
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
   // Stripe requires raw body
@@ -104,88 +112,66 @@ export async function POST(req: NextRequest) {
   const sig = h.get("stripe-signature");
 
   if (!sig) {
-    return NextResponse.json(
-      { error: "Missing stripe-signature header" },
-      { status: 400 }
-    );
+    console.error("[WEBHOOK] Missing signature header");
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
 
   let event: Stripe.Event;
 
-  // ───────────── STRIPE SIGNATURE VALIDATION ─────────────
+  // Signature verification
   try {
-    event = stripe.webhooks.constructEvent(
-      rawBody,
-      sig,
-      stripeWebhookSecret
-    );
+    event = stripe.webhooks.constructEvent(rawBody, sig, stripeWebhookSecret);
   } catch (err: any) {
-    console.error("Stripe signature error:", err?.message || err);
-    return NextResponse.json(
-      { error: "Invalid Stripe signature" },
-      { status: 400 }
-    );
+    console.error("[WEBHOOK] Signature error:", err?.message || err);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // ───────────── HANDLE EVENTS ─────────────
+  console.log("[WEBHOOK] EventType:", event.type);
+
   try {
     switch (event.type) {
-      // PAYMENT COMPLETE
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const email =
-          session.customer_details?.email ??
-          (session.customer_email as string | null) ??
-          null;
-
-        const customerId = (session.customer as string) || null;
-        const amountTotal = session.amount_total ?? 0;
-        const currency = session.currency ?? "usd";
-
-        const stripeSessionId = session.id;
-
-        const productMeta =
-          (session.metadata && (session.metadata.product as string)) ||
-          (session.metadata && (session.metadata.plan as string)) ||
-          "lease-purchase";
-
-        const userIdMeta =
-          (session.metadata && (session.metadata.user_id as string)) || null;
-
-        await insertLeaseEvent({
-          user_id: userIdMeta,
-          email,
-          type: "paid",
-          amount: amountTotal,
-          currency,
-          product: productMeta,
-          lease_id: null,
-          stripe_session_id: stripeSessionId,
-          stripe_customer: customerId,
-          metadata: session.metadata ?? {},
+        console.log("[WEBHOOK] Checkout Session:", {
+          email:
+            session.customer_details?.email ||
+            session.customer_email ||
+            null,
+          amount: session.amount_total,
+          currency: session.currency,
+          sessionId: session.id,
         });
 
-        break;
-      }
-
-      // OPTIONAL: SUBSCRIPTIONS
-      case "invoice.payment_succeeded": {
-        // implement if needed
+        await insertLeaseEvent({
+          user_id: session.metadata?.user_id ?? null,
+          email:
+            session.customer_details?.email ||
+            (session.customer_email as string | null) ||
+            null,
+          type: "paid",
+          amount: session.amount_total ?? 0,
+          currency: session.currency ?? "usd",
+          product:
+            session.metadata?.product ||
+            session.metadata?.plan ||
+            "lease-purchase",
+          lease_id: null,
+          stripe_session_id: session.id,
+          stripe_customer: (session.customer as string) || null,
+          metadata: session.metadata ?? {},
+        });
         break;
       }
 
       default:
-        // ignore everything else
+        console.log("[WEBHOOK] Ignored event", event.type);
         break;
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (err: any) {
-    console.error("Webhook handler error:", err?.message || err);
-    return NextResponse.json(
-      { error: "Webhook handler failed" },
-      { status: 500 }
-    );
+    console.error("[WEBHOOK_HANDLER_ERROR]", err?.message || err);
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }

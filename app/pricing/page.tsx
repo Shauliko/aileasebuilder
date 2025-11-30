@@ -49,7 +49,8 @@ export default function PricingPage() {
 
         {/* Stripe Pricing Component */}
         <div className="max-w-4xl mx-auto mt-10">
-          <StripePricingTable />
+          {/* Stripe pricing table disabled for local testing */}
+          {/* <StripePricingTable /> */}
         </div>
 
         <p className="text-gray-400 text-center mt-10 text-sm max-w-xl mx-auto">
