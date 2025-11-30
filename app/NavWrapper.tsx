@@ -1,93 +1,137 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { useState } from "react";
+import { UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 
 export default function NavWrapper() {
   const pathname = usePathname();
+  const hideNav = pathname.startsWith("/admin");
 
-  // Hide navbar completely on admin routes
-  const isAdminRoute = pathname?.startsWith("/admin");
-  if (isAdminRoute) return null;
+  if (hideNav) return null;
+
+  const [open, setOpen] = useState(false);
+
+  const navLinks = [
+    { href: "/generate-lease", label: "Generate Lease" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/blog", label: "Blog" },
+    { href: "/contact", label: "Contact" },
+  ];
 
   return (
-    <nav className="w-full border-b border-white/10 bg-[#050816]/90 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <header className="w-full bg-[#050816] border-b border-white/10 fixed top-0 left-0 z-50">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-4">
+
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-500 via-cyan-400 to-purple-500 flex items-center justify-center text-xs font-bold">
-            AI
-          </div>
-          <span className="font-semibold tracking-tight">AI Lease Builder</span>
-        </a>
+        <Link href="/" className="text-xl font-bold text-white">
+          AI Lease Builder
+        </Link>
 
-        {/* Right Side Navigation */}
-        <div className="flex items-center gap-6 text-sm">
-          <a
-            href="/generate-lease"
-            className="text-gray-300 hover:text-white transition"
-          >
-            Generate Lease
-          </a>
-
-          <a
-            href="/pricing"
-            className="text-gray-300 hover:text-white transition"
-          >
-            Pricing
-          </a>
-
-          {/* ✅ Blog link added */}
-          <a
-            href="/blog"
-            className="text-gray-300 hover:text-white transition"
-          >
-            Blog
-          </a>
-
-          <a
-            href="/faq"
-            className="text-gray-300 hover:text-white transition"
-          >
-            FAQ
-          </a>
-
-          <a
-            href="/about"
-            className="text-gray-300 hover:text-white transition"
-          >
-            About
-          </a>
-
-          <a
-            href="/contact"
-            className="text-gray-300 hover:text-white transition"
-          >
-            Contact
-          </a>
-
-          {/* Logged OUT */}
-          <SignedOut>
-            <a
-              href="/sign-in"
-              className="px-3 py-1 rounded-md border border-white/20 text-gray-200 hover:bg-white/10 transition"
+        {/* Desktop Menu */}
+        <nav className="hidden md:flex items-center gap-8">
+          {navLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-gray-300 hover:text-white transition"
             >
-              Sign in
-            </a>
-            <a
-              href="/sign-up"
-              className="px-3 py-1 rounded-md border border-blue-500/50 text-blue-300 hover:bg-blue-500/10 transition"
-            >
-              Sign up
-            </a>
-          </SignedOut>
+              {item.label}
+            </Link>
+          ))}
 
-          {/* Logged IN */}
           <SignedIn>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton />
           </SignedIn>
-        </div>
+
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500 text-white"
+            >
+              Sign In
+            </Link>
+          </SignedOut>
+        </nav>
+
+        {/* Mobile Hamburger */}
+        <button
+          className="md:hidden text-gray-300 text-2xl"
+          onClick={() => setOpen(true)}
+        >
+          ☰
+        </button>
       </div>
-    </nav>
+
+      {/* Mobile Slide-Out Menu */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex">
+
+          {/* Dark background overlay */}
+          <div
+            className="flex-1 bg-black/50"
+            onClick={() => setOpen(false)}
+          />
+
+          {/* Slide-out panel */}
+          <div className="w-64 bg-[#0a0f1e] border-l border-white/10 p-6 animate-slideLeft">
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-lg font-semibold">Menu</span>
+              <button
+                className="text-gray-300 text-2xl"
+                onClick={() => setOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <nav className="flex flex-col gap-4">
+              {navLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-gray-300 hover:text-white transition text-lg"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+
+              <SignedIn>
+                <div className="mt-4">
+                  <UserButton />
+                </div>
+              </SignedIn>
+
+              <SignedOut>
+                <Link
+                  href="/sign-in"
+                  className="mt-6 px-4 py-2 text-center bg-blue-600 rounded hover:bg-blue-500 text-white"
+                  onClick={() => setOpen(false)}
+                >
+                  Sign In
+                </Link>
+              </SignedOut>
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Animation for slide-out */}
+      <style jsx global>{`
+        @keyframes slideLeft {
+          from {
+            transform: translateX(100%);
+          }
+          to {
+            transform: translateX(0);
+          }
+        }
+        .animate-slideLeft {
+          animation: slideLeft 0.25s ease-out forwards;
+        }
+      `}</style>
+    </header>
   );
 }
