@@ -47,11 +47,39 @@ export default function PricingPage() {
           </a>.
         </p>
 
-        {/* Stripe Pricing Component */}
-        <div className="max-w-4xl mx-auto mt-10">
-          {/* Stripe pricing table disabled for local testing */}
-          {/* <StripePricingTable /> */}
+        {/* One-time $8 purchase CTA */}
+        <div className="max-w-md mx-auto mt-14 text-center">
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/create-checkout-session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  leaseData: {},     // Empty: user fills form after payment
+                  planType: "payg",
+                  languages: [],     // No languages selected here; user picks later
+                  email: "",         // Stripe will collect
+                }),
+              });
+
+              const data = await res.json();
+              if (data?.url) {
+                window.location.href = data.url;
+              } else {
+                alert("Unable to start checkout. Please try again.");
+              }
+            }}
+            className="px-8 py-4 rounded-full bg-cyan-600 hover:bg-cyan-500 text-black font-semibold text-lg shadow-lg transition"
+          >
+            Purchase a Lease – $8
+          </button>
+
+          <p className="text-gray-400 text-sm mt-4">
+            One-time payment. No subscriptions.  
+            Your free English lease remains available anytime.
+          </p>
         </div>
+
 
         <p className="text-gray-400 text-center mt-10 text-sm max-w-xl mx-auto">
           AI Lease Builder creates legally-structured residential leases tailored to your property type,

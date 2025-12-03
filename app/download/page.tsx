@@ -267,6 +267,75 @@ export default function DownloadLeasePage() {
           </div>
         </section>
 
+      {/* ====================================================== */}
+      {/* TRANSLATED LEASES (NEW) */}
+      {/* ====================================================== */}
+      {leaseData?.translated && leaseData.translated.length > 0 && (
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold text-white mb-4">
+            Translated Leases
+          </h2>
+
+          <p className="text-gray-400 mb-6">
+            You selected additional languages. Download each translated lease below.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {leaseData.translated.map((t, idx) => (
+              <div
+                key={idx}
+                className="bg-[#0B0F19] border border-white/10 rounded-lg p-5"
+              >
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  {t.language}
+                </h3>
+                <p className="text-gray-400 mb-4 text-sm">
+                  Fully translated version of your state-compliant lease.
+                </p>
+
+                <div className="flex flex-wrap gap-3">
+                  {/* PDF only shown when available */}
+                  {t.pdf_base64 && (
+                    <button
+                      onClick={() => {
+                        const blob = base64ToBlob(
+                          t.pdf_base64,
+                          "application/pdf"
+                        );
+                        triggerDownload(
+                          blob,
+                          `Residential-Lease-${t.language}.pdf`
+                        );
+                      }}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2 rounded-md text-white font-semibold hover:opacity-90 text-sm"
+                    >
+                      Download PDF
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      const blob = base64ToBlob(
+                        t.docx_base64,
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      );
+                      triggerDownload(
+                        blob,
+                        `Residential-Lease-${t.language}.docx`
+                      );
+                    }}
+                    className="bg-white/10 px-4 py-2 rounded-md text-gray-200 border border-white/10 hover:bg-white/20 text-sm"
+                  >
+                    Download Word (.docx)
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+
         {/* Checklist Section */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold text-white mb-2">

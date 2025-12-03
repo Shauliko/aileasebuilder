@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 
 import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
@@ -17,7 +17,7 @@ import { Pool } from "pg";
 export const runtime = "nodejs";
 
 // -----------------------------------------------------------
-// Neon / Postgres pool (for FREE events into lease_events)
+// Neon / Postgres pool
 // -----------------------------------------------------------
 const databaseUrl = process.env.DATABASE_URL || "";
 
@@ -61,13 +61,13 @@ async function insertFreeLeaseEvent(params: {
       [
         params.email,
         params.email,
-        "free", // type
-        0, // amount
-        "usd", // currency
-        "free-generation", // product
-        null, // lease_id
-        null, // stripe_session_id
-        null, // stripe_customer
+        "free",
+        0,
+        "usd",
+        "free-generation",
+        null,
+        null,
+        null,
         {
           ip: params.ip,
           state: params.state,
@@ -82,13 +82,13 @@ async function insertFreeLeaseEvent(params: {
 }
 
 // -----------------------------------------------------------
-// PRIVILEGED USERS — can bypass free-tier & multilingual limits
+// PRIVILEGED USERS
 // -----------------------------------------------------------
 const privilegedUsers: string[] =
   process.env.PRIVILEGED_USERS?.split(",").map((u) => u.trim()) || [];
 
 // -----------------------------------------------------------
-// SAFE JSON PARSER — strips ```json fences & extracts JSON only
+// SAFE JSON PARSER
 // -----------------------------------------------------------
 function safeJsonParse(raw: string) {
   if (!raw) return {};
@@ -114,7 +114,20 @@ function safeJsonParse(raw: string) {
 }
 
 // -----------------------------------------------------------
-// Markdown → DOCX Paragraphs (fallback for translations)
+// Claude content → plain text helper (fixes TS errors)
+// -----------------------------------------------------------
+function extractTextFromClaudeMessage(message: any): string {
+  if (!message || !Array.isArray(message.content)) return "";
+
+  return message.content
+    .filter((block: any) => block.type === "text" && typeof block.text === "string")
+    .map((block: any) => block.text)
+    .join("\n")
+    .trim();
+}
+
+// -----------------------------------------------------------
+// Markdown → DOCX converter (kept as-is)
 // -----------------------------------------------------------
 function convertMarkdownToDocxParagraphs(md: string) {
   const lines = md.split("\n");
@@ -128,7 +141,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // # H1
     if (trimmed.startsWith("# ")) {
       paragraphs.push(
         new Paragraph({
@@ -140,7 +152,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // ## H2
     if (trimmed.startsWith("## ")) {
       paragraphs.push(
         new Paragraph({
@@ -152,7 +163,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // Bullet list
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       paragraphs.push(
         new Paragraph({
@@ -163,7 +173,6 @@ function convertMarkdownToDocxParagraphs(md: string) {
       continue;
     }
 
-    // Normal paragraph
     paragraphs.push(
       new Paragraph({
         children: [new TextRun({ text: trimmed, size: 24 })],
@@ -183,12 +192,19 @@ export async function POST(req: Request) {
     const body = await req.json();
     console.log("DEBUG BODY RECEIVED:", body);
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // 🔥 Claude client
+    const client = new Anthropic({
+      apiKey: process.env.CLAUDE_API_KEY!,
+    // forces personal-account mode, disables org inheritance
+      defaultHeaders: {
+        "Anthropic-Organization": ""
+      }
+   });
 
     const { languages = [] } = body;
 
     // -----------------------------------------------------------
-    // IP for server-side enforcement
+    // IP capture
     // -----------------------------------------------------------
     const xff = req.headers.get("x-forwarded-for");
     const ip =
@@ -199,7 +215,7 @@ export async function POST(req: Request) {
     console.log("ADMIN DEBUG — Incoming IP:", ip);
 
     // -----------------------------------------------------------
-    // Infer email and plan (non-breaking)
+    // Infer email + plan
     // -----------------------------------------------------------
     const emailFromBody: string | undefined =
       body.userEmail || body.email || body.user?.email;
@@ -209,16 +225,13 @@ export async function POST(req: Request) {
     const isPrivilegedUser =
       !!emailFromBody && privilegedUsers.includes(emailFromBody);
 
-    // -----------------------------------------------------------
-    // Server-side FREE-TIER enforcement (IP + email)
-    // -----------------------------------------------------------
     const adminIPs = ["127.0.0.1", "::1", "192.168.1.238"];
 
+    // -----------------------------------------------------------
+    // Free tier blocking
+    // -----------------------------------------------------------
     if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
-      const { allowed } = await canGenerateLease(
-        emailFromBody || null,
-        ip
-      );
+      const { allowed } = await canGenerateLease(emailFromBody || null, ip);
 
       if (!allowed) {
         return NextResponse.json(
@@ -233,7 +246,7 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------------------------------------
-    // Multilingual restriction for FREE users (unless privileged)
+    // Free tier language blocking
     // -----------------------------------------------------------
     if (!isPrivilegedUser && planType === "free" && languages.length > 0) {
       return NextResponse.json(
@@ -247,31 +260,29 @@ export async function POST(req: Request) {
     }
 
     // -----------------------------------------------------------
-    // 🔥 STATE COMPLIANCE INJECTION
+    // Compliance
     // -----------------------------------------------------------
     const compliance = getComplianceForState(
       body.state || body.propertyState || "DEFAULT"
     );
 
     // ==========================================================
-    // STEP 1 — GENERATE MAIN ENGLISH LEASE
+    // STEP 1 — MAIN LEASE (Claude)
     // ==========================================================
-    const selectedClauses: string[] = body.optionalClauses || [];
     const mainPrompt = `
-You are an expert U.S. real estate attorney. Generate a complete, professional, legally compliant residential lease agreement.
+You are an expert U.S. real estate attorney. Generate a complete residential lease agreement.
 
 STATE SELECTED: ${body.state || body.propertyState}
 
-MANDATORY COMPLIANCE REQUIREMENTS:
-- Governing Law / Landlord-Tenant Act: ${compliance.landlordTenantAct}
+MANDATORY COMPLIANCE:
+- Governing Law: ${compliance.landlordTenantAct}
 - Required Disclosures: ${compliance.disclosures.join(", ") || "None"}
 - Habitability Rules: ${compliance.habitability.join(", ") || "None"}
-- Addendums to Include: ${compliance.addendums.join(", ") || "None"}
-- Forbidden Clauses (DO NOT INCLUDE): ${compliance.forbiddenClauses.join(", ") || "None"}
+- Addendums Required: ${compliance.addendums.join(", ") || "None"}
+- Forbidden Clauses: ${compliance.forbiddenClauses.join(", ") || "None"}
 
-STRICT OUTPUT RULES:
-- Output only VALID JSON.
-- No markdown fences.
+STRICT RULES:
+- Output ONLY valid JSON (no markdown fences).
 - Must include:
   "lease_markdown": "...",
   "addendums_markdown": [],
@@ -281,112 +292,132 @@ Word count target: 1500–3500 words.
 
 INPUT:
 ${JSON.stringify(body, null, 2)}
-
-OUTPUT FORMAT EXAMPLE:
-{
-  "lease_markdown": ".",
-  "addendums_markdown": [],
-  "checklist_markdown": "."
-}
 `;
 
-    const english = await client.responses.create({
-      model: "gpt-4.1",
-      input: mainPrompt,
+    const english = await client.messages.create({
+      // use the latest Claude Sonnet; if this 404s, fall back to 20240620
+      model: process.env.AI_MODEL!,
+      max_tokens: 8000,
+      messages: [
+        { role: "user", content: "Return ONLY valid JSON, no backticks." },
+        { role: "user", content: mainPrompt },
+      ],
     });
 
-    const englishText = english.output_text || "";
+    // 🔥 TS-safe text extraction (instead of .content?.[0]?.text)
+    const englishText = extractTextFromClaudeMessage(english);
     const parsed = safeJsonParse(englishText);
 
     const leaseMd = parsed.lease_markdown || "";
     const checklistMd = parsed.checklist_markdown || "";
 
     // ==========================================================
-    // STEP 2 — PDF (UPGRADED)
+    // STEP 2 — PDF
     // ==========================================================
     const leaseHtml = await markdownToHtml(leaseMd);
     const leasePdfBuf = await createPdfFromHtml(leaseHtml);
     const leasePdfBase64 = leasePdfBuf.toString("base64");
 
     // ==========================================================
-    // STEP 3 — DOCX (UPGRADED)
+    // STEP 3 — DOCX
     // ==========================================================
     const leaseDocxBuf = await createDocxFromMarkdown(leaseMd);
     const leaseDocxBase64 = leaseDocxBuf.toString("base64");
 
     // ==========================================================
-    // STEP 4 — TRANSLATIONS
+    // STEP 4 — TRANSLATIONS (Claude)
     // ==========================================================
-    const translated: {
-      language: string;
-      markdown: string;
-      html: string;
-      pdf_base64: string | null;
-      docx_base64: string;
-    }[] = [];
+    // ==========================================================
+// STEP 4 — TRANSLATIONS (Claude) — SURGICAL UPGRADE
+// ==========================================================
+const translated: {
+  language: string;
+  markdown: string;
+  html: string;
+  pdf_base64: string | null;
+  docx_base64: string;
+}[] = [];
 
-    const unicodeLanguages = [
-      "Arabic",
-      "Chinese (Simplified)",
-      "Chinese (Traditional)",
-      "Hebrew",
-      "Hindi",
-      "Japanese",
-      "Korean",
-      "Thai",
-    ];
+const unicodeLanguages = [
+  "Arabic",
+  "Chinese (Simplified)",
+  "Chinese (Traditional)",
+  "Hebrew",
+  "Hindi",
+  "Japanese",
+  "Korean",
+  "Thai",
+];
 
-    for (const lang of languages as string[]) {
-      const tPrompt = `
-Translate the following residential lease into "${lang}".
-Preserve markdown structure (### headings, - bullets).
+for (const lang of languages as string[]) {
+  const tPrompt = `
+You are a professional legal translator.
 
-Return ONLY VALID JSON:
+TASK:
+Translate the FULL lease into the target language: "${lang}".
+
+CRITICAL RULES:
+- Translate EVERYTHING except proper nouns.
+- NO English sentences in the output unless they are legally required or names of laws.
+- Keep ALL markdown structure EXACTLY unchanged (headings, lists, spacing).
+- Do NOT summarize, shorten, or rewrite.
+- Do NOT add explanations.
+- Output must be a 100% full translation.
+
+OUTPUT FORMAT (STRICT):
+Return ONLY valid JSON with NO backticks:
 {
   "language": "${lang}",
-  "markdown": "."
+  "markdown": "<THE FULL TRANSLATED MARKDOWN>"
 }
 
-LEASE TO TRANSLATE:
+SOURCE LEASE (MARKDOWN):
 ${leaseMd}
-`;
+  `;
 
-      const tResp = await client.responses.create({
-        model: "gpt-4.1",
-        input: tPrompt,
-      });
+  const tResp = await client.messages.create({
+    model: process.env.AI_MODEL!,
+    max_tokens: 5000,
+    messages: [
+      {
+        role: "user",
+        content:
+          "OUTPUT REQUIREMENT: Return ONLY valid JSON. NO backticks. NO commentary. NO English unless legally required or a proper noun.",
+      },
+      { role: "user", content: tPrompt },
+    ],
+  });
 
-      const tText = tResp.output_text || "";
-      const tJson = safeJsonParse(tText);
+  const tText = extractTextFromClaudeMessage(tResp);
+  const tJson = safeJsonParse(tText);
 
-      const tMd = tJson.markdown || "";
-      const tHtml = await markdownToHtml(tMd);
+  const tMd = tJson.markdown || "";
+  const tHtml = await markdownToHtml(tMd);
 
-      // PDF: only for safer latin-languages
-      let tPdfBase64: string | null = null;
-      if (!unicodeLanguages.includes(lang)) {
-        try {
-          const tPdf = await createPdfFromHtml(tHtml);
-          tPdfBase64 = tPdf.toString("base64");
-        } catch (err) {
-          console.error(`PDF failed for ${lang}`, err);
-        }
-      }
-
-      // DOCX (fallback paragraphs)
-      const tDocxBuf = await createDocxFromMarkdown(tMd);
-
-      translated.push({
-        language: lang,
-        markdown: tMd,
-        html: tHtml,
-        pdf_base64: tPdfBase64,
-        docx_base64: tDocxBuf.toString("base64"),
-      });
+  let tPdfBase64: string | null = null;
+  if (!unicodeLanguages.includes(lang)) {
+    try {
+      const tPdf = await createPdfFromHtml(tHtml);
+      tPdfBase64 = tPdf.toString("base64");
+    } catch (err) {
+      console.error(`PDF failed for ${lang}`, err);
     }
+  }
+
+  const tDocxBuf = await createDocxFromMarkdown(tMd);
+
+  translated.push({
+    language: lang,
+    markdown: tMd,
+    html: tHtml,
+    pdf_base64: tPdfBase64,
+    docx_base64: tDocxBuf.toString("base64"),
+  });
+}
+
 
     // -----------------------------------------------------------
-    // RECORD SUCCESSFUL FREE LEASE GENERATION (Neon + usage table)
+    // FREE TIER LOGGING
     // -----------------------------------------------------------
     if (!isPrivilegedUser && planType === "free" && !adminIPs.includes(ip)) {
       await insertFreeLeaseEvent({
@@ -395,12 +426,11 @@ ${leaseMd}
         state: body.state || body.propertyState || null,
       });
 
-      // existing free-tier tracking
       await recordLeaseGeneration(emailFromBody || null, ip);
     }
 
     // ==========================================================
-    // FINAL JSON RESPONSE
+    // FINAL JSON RESPONSE (kept identical to your version)
     // ==========================================================
     return NextResponse.json({
       success: true,
@@ -414,6 +444,10 @@ ${leaseMd}
       lease_pdf_base64: leasePdfBase64,
       lease_docx_base64: leaseDocxBase64,
       translated,
+      files: {
+        pdf: leasePdfBase64,
+        docx: leaseDocxBase64,
+      },
     });
   } catch (err: any) {
     console.error("API ERROR:", err);

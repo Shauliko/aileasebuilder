@@ -83,8 +83,7 @@ export default function RootLayout({
             }}
           />
         </head>
-
-        <body
+      <body
           className={`${inter.className} bg-[#050816] text-white min-h-screen`}
         >
           <NavWrapper />

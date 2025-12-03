@@ -72,18 +72,21 @@ export default function GenerateLeasePage() {
   const handleChange = (e: any) => {
     const { name, type, value, checked } = e.target;
 
+    // Special case: multilingual checkbox
     if (name === "includeMultilingual") {
       setForm((prev) => ({
         ...prev,
         includeMultilingual: checked,
-        languages: checked ? prev.languages : [],
+        // NEVER reset languages automatically
       }));
       return;
     }
 
+    // Generic field update (preserve ALL other fields)
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+      languages: prev.languages, // <-- 🔥 preserve languages explicitly
     }));
   };
 
@@ -93,11 +96,16 @@ export default function GenerateLeasePage() {
   const toggleLanguage = (code: string) => {
     setForm((prev) => {
       const exists = prev.languages.includes(code);
+
+      const updated = exists
+        ? prev.languages.filter((c) => c !== code)
+        : [...prev.languages, code];
+
+      console.log("UPDATED LANGUAGES:", updated); // debug
+
       return {
         ...prev,
-        languages: exists
-          ? prev.languages.filter((c) => c !== code)
-          : [...prev.languages, code],
+        languages: updated,
       };
     });
   };
@@ -108,6 +116,7 @@ export default function GenerateLeasePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    console.log("DEBUG FORM BEFORE SUBMIT:", form);
 
     // Validate required fields
     if (!form.state || !form.propertyType || !form.rent || !form.term) {
@@ -128,7 +137,12 @@ export default function GenerateLeasePage() {
         const res = await fetch("/api/create-checkout-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leaseData: form }),
+          body: JSON.stringify({
+            leaseData: form,           // full form
+            email: userEmail,          // 🔥 required
+            planType: "payg",          // 🔥 required
+            languages: form.languages, // 🔥 required for translations
+          }),
         });
 
         const data = await res.json();
@@ -142,6 +156,7 @@ export default function GenerateLeasePage() {
         setLoading(false);
         return;
       }
+
 
       // -------------------------------------------------
       // ENGLISH-ONLY CASE
@@ -417,12 +432,16 @@ function MultilingualSelector({
           <p className="text-xs text-gray-300 mb-2">
             Select all languages you want. English is always included.
           </p>
+
           <div className="flex flex-wrap gap-2">
             {ALL_LANGUAGES.map((lang) => (
               <button
                 key={lang.code}
                 type="button"
-                onClick={() => toggleLanguage(lang.code)}
+                onClick={() => {
+                  console.log("CLICKED:", lang.code); // 🔥 debug
+                  toggleLanguage(lang.code);
+                }}
                 className={`px-3 py-1 rounded-full text-xs border ${
                   languages.includes(lang.code)
                     ? "bg-cyan-500 text-black border-cyan-400"

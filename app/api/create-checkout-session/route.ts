@@ -26,13 +26,6 @@ console.log("[CHECKOUT-ENV]", {
   domain,
 });
 
-// Guard: if we somehow still have a LIVE key, refuse to run
-if (stripeMode === "live") {
-  console.error(
-    "[CHECKOUT-ENV] FATAL: STRIPE_SECRET_KEY is LIVE (sk_live_...). Refusing to create checkout sessions while we debug."
-  );
-}
-
 // Create Stripe client only if we have a key
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
@@ -55,17 +48,6 @@ export async function POST(req: NextRequest) {
       console.error("[CHECKOUT] Missing STRIPE_PRICE_PAYG at runtime");
       return NextResponse.json(
         { error: "Server misconfigured: STRIPE_PRICE_PAYG missing" },
-        { status: 500 }
-      );
-    }
-
-    if (stripeMode === "live") {
-      // Hard block: do NOT allow live mode right now
-      return NextResponse.json(
-        {
-          error:
-            "Checkout temporarily disabled: Stripe is in LIVE mode. Update STRIPE_SECRET_KEY to sk_test_... in Vercel.",
-        },
         { status: 500 }
       );
     }
@@ -93,8 +75,12 @@ export async function POST(req: NextRequest) {
       cancel_url: `${domain}/generate-lease`,
       metadata: {
         leaseData: JSON.stringify(leaseData),
+        languages: JSON.stringify(body.languages || []),
+        planType: body.planType || "payg",
+        email: body.email || "",
         type: "payg",
       },
+
     });
 
     return NextResponse.json({ url: session.url });
