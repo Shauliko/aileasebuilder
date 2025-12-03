@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -33,7 +34,7 @@ type SessionData = {
   languages?: string[];
 };
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessPageInner() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
 
@@ -451,3 +452,16 @@ export default function PaymentSuccessPage() {
     </main>
   );
 }
+    export default function PaymentSuccessPage() {
+      return (
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center">
+              <p className="text-gray-300 text-sm">Loading payment details…</p>
+            </div>
+          }
+        >
+          <PaymentSuccessPageInner />
+        </Suspense>
+    );
+  }
