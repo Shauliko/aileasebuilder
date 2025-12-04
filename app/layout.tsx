@@ -82,6 +82,19 @@ export default function RootLayout({
               }),
             }}
           />
+          {/* GOOGLE ADS TAG */}
+            <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17780439036"></script>
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', 'AW-17780439036');
+                `,
+              }}
+            />
+            
         </head>
       <body
           className={`${inter.className} bg-[#050816] text-white min-h-screen`}
