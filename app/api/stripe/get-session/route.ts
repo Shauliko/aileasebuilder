@@ -1,7 +1,7 @@
 // app/api/stripe/get-session/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-
+import { trackEvent } from "@/lib/analytics/posthog";
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -22,6 +22,17 @@ export async function POST(req: Request) {
 
     // 1️⃣ Retrieve Stripe checkout session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    trackEvent(
+      "stripe_session_retrieved",
+      session.customer_details?.email || sessionId,
+      {
+        sessionId,
+        hasMetadata: !!session.metadata,
+        planType: session.metadata?.planType || null,
+        languages: session.metadata?.languages || null,
+        timestamp: Date.now(),
+      }
+    );
 
     if (!session) {
       return NextResponse.json(

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { trackEvent } from "@/lib/analytics/posthog";
 
 type LeaseResult = {
   success: boolean;
@@ -144,6 +145,20 @@ function PaymentSuccessPageInner() {
 
         setLease(leaseJson);
         setStatus("done");
+        
+        // ---- POSTHOG ANALYTICS (surgical) ----
+        trackEvent(
+          "payment_success_and_lease_generated",
+          sessionJson.email || "unknown",
+          {
+            amount: 8,
+            languages: leaseJson.languages,
+            planType: leaseJson.planType,
+            state: sessionJson.leaseData?.state,
+            translatedCount: leaseJson.translated?.length || 0,
+            timestamp: Date.now(),
+          }
+        );
       } catch (err: any) {
         console.error("PaymentSuccess error:", err);
         setError(

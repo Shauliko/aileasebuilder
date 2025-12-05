@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { trackEvent } from "@/lib/analytics/posthog";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 
@@ -139,6 +140,16 @@ Rules:
         { status: 500 }
       );
     }
+      trackEvent(
+        "admin_seo_generated",
+        userId,
+        {
+          title: safeTitle,
+          category: safeCategory,
+          tags: safeTags,
+          timestamp: Date.now(),
+        }
+      );
 
     return NextResponse.json({
       meta_title:

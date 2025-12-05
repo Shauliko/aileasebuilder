@@ -1,7 +1,7 @@
 // app/api/create-checkout-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-
+import { trackEvent } from "@/lib/analytics/posthog";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,17 @@ export async function POST(req: NextRequest) {
       },
 
     });
-
+      // ---- POSTHOG ANALYTICS (surgical) ----
+      trackEvent(
+        "checkout_started",
+        body.email || "unknown",
+        {
+          languages: body.languages || [],
+          planType: body.planType || "payg",
+          amount: 8,
+          timestamp: Date.now(),
+        }
+      );
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
     console.error("[CHECKOUT ERROR]", error?.message || error);

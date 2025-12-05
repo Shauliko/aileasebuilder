@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-
+import { trackEvent } from "@/lib/analytics/posthog";
 import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
 import { createDocxFromMarkdown } from "../utils/createDocx";
@@ -428,6 +428,18 @@ ${leaseMd}
 
       await recordLeaseGeneration(emailFromBody || null, ip);
     }
+      trackEvent(
+        "lease_generated",
+        emailFromBody || ip || "unknown",
+        {
+          state: body.state,
+          languages,
+          planType,
+          isPrivilegedUser,
+          translatedCount: translated.length,
+          timestamp: Date.now(),
+        }
+      );
 
     // ==========================================================
     // FINAL JSON RESPONSE (kept identical to your version)

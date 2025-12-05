@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { auth } from "@clerk/nextjs/server";
+import { trackEvent } from "@/lib/analytics/posthog";
 
 const postsDir = path.join(process.cwd(), "content/posts");
 
@@ -37,6 +38,11 @@ export async function GET(req: Request) {
     }
 
     const post = JSON.parse(fs.readFileSync(file, "utf-8"));
+    trackEvent("admin_blog_fetched", userId, {
+      slug,
+      timestamp: Date.now(),
+    });
+
     return NextResponse.json({ post });
   } catch (err) {
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
@@ -97,6 +103,13 @@ export async function POST(req: Request) {
     };
 
     fs.writeFileSync(file, JSON.stringify(postData, null, 2));
+    
+    trackEvent("admin_blog_created", userId, {
+      slug,
+      title,
+      category: category || "",
+      timestamp: Date.now(),
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {
@@ -162,6 +175,12 @@ export async function PUT(req: Request) {
     };
 
     fs.writeFileSync(file, JSON.stringify(postData, null, 2));
+      trackEvent("admin_blog_updated", userId, {
+        slug,
+        title,
+        category: category || "",
+        timestamp: Date.now(),
+      });
 
     return NextResponse.json({ success: true });
   } catch (err) {

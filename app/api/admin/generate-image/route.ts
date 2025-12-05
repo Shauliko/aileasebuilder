@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { trackEvent } from "@/lib/analytics/posthog";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 
@@ -109,6 +110,15 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+    trackEvent(
+      "admin_image_generated",
+      userId,
+      {
+        prompt,
+        size: "1024x1024",
+        timestamp: Date.now(),
+      }
+    );
 
     // Return base64 as data URL for easy display
     return NextResponse.json({
