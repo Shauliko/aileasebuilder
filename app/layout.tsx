@@ -101,7 +101,7 @@ export default function RootLayout({
         >
           <NavWrapper />
 
-          <main className="w-full min-h-screen bg-[#050816] text-gray-300">
+          <main className="w-full min-h-screen bg-[#050816] text-gray-300 pt-24">
             {children}
           </main>
 

@@ -18,6 +18,7 @@ export default function NavWrapper() {
     { href: "/pricing", label: "Pricing" },
     { href: "/blog", label: "Blog" },
     { href: "/contact", label: "Contact" },
+    { href: "/faq", label: "FAQ" },
   ];
 
   return (

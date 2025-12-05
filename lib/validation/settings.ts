@@ -16,7 +16,7 @@ export const billingConfigSchema = z.object({
 });
 
 export const aiConfigSchema = z.object({
-  openaiApiKey: z.string().optional(),
+  claudeApiKey: z.string().optional(),
   model: z.string().optional(),
   maxTokensPerDoc: z.number().optional(),
   systemPrompt: z.string().optional(),

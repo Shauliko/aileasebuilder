@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 
 // -----------------------------
 // SIMPLE IN-MEMORY RATE LIMITER
@@ -11,15 +11,14 @@ type RateEntry = {
   resetAt: number;
 };
 
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 5; // max 5 image requests per minute
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 5;
 const rateMap = new Map<string, RateEntry>();
 
 function checkRateLimit(key: string) {
   const now = Date.now();
   const existing = rateMap.get(key);
 
-  // First request of new window
   if (!existing || now > existing.resetAt) {
     rateMap.set(key, {
       count: 1,
@@ -28,32 +27,27 @@ function checkRateLimit(key: string) {
     return { allowed: true, retryAfter: 0 };
   }
 
-  // Exceeded limit
   if (existing.count >= RATE_LIMIT_MAX) {
     return { allowed: false, retryAfter: existing.resetAt - now };
   }
 
-  // Within limit
   existing.count += 1;
   rateMap.set(key, existing);
   return { allowed: true, retryAfter: 0 };
 }
 
 // -----------------------------
-// POST — Generate AI Image (ADMIN ONLY)
+// POST — Generate AI Image (ADMIN ONLY) — CLAUDE VERSION
 // -----------------------------
 export async function POST(req: Request) {
   try {
     // 🔒 AUTH — Admin only
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔒 RATE LIMIT — per user
+    // 🔒 RATE LIMIT
     const rateKey = `gen-image:${userId}`;
     const { allowed, retryAfter } = checkRateLimit(rateKey);
 
@@ -68,63 +62,57 @@ export async function POST(req: Request) {
     }
 
     // 🔒 ENV check
-    if (!OPENAI_API_KEY) {
+    if (!CLAUDE_API_KEY) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
+        { error: "Missing CLAUDE_API_KEY" },
         { status: 500 }
       );
     }
 
-    // Parse JSON body
+    // Parse body
     const { prompt } = await req.json();
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 5) {
-      return NextResponse.json(
-        { error: "Prompt too short" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Prompt too short" }, { status: 400 });
     }
 
-    // Call OpenAI (DALL•E / gpt-image-1)
-    const dalleRes = await fetch(
-      "https://api.openai.com/v1/images/generations",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-image-1",
-          prompt,
-          size: "1024x1024",
-        }),
-      }
-    );
+    // -----------------------------
+    // CLAUDE IMAGE GENERATION
+    // -----------------------------
+    const imgRes = await fetch("https://api.anthropic.com/v1/images/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-sonnet-20250219", // Claude image model
+        prompt,
+        size: "1024x1024",
+        output_format: "png",
+      }),
+    });
 
-    if (!dalleRes.ok) {
+    if (!imgRes.ok) {
       return NextResponse.json(
-        { error: "OpenAI image generation failed" },
+        { error: "Claude image generation failed" },
         { status: 500 }
       );
     }
 
-    const dalleData = await dalleRes.json();
+    const data = await imgRes.json();
 
-    if (
-      !dalleData ||
-      !Array.isArray(dalleData.data) ||
-      !dalleData.data[0]?.url
-    ) {
+    if (!data?.image_base64) {
       return NextResponse.json(
-        { error: "Image generation failed" },
+        { error: "Claude returned no image" },
         { status: 500 }
       );
     }
 
-    // Return image URL
+    // Return base64 as data URL for easy display
     return NextResponse.json({
-      url: dalleData.data[0].url,
+      url: `data:image/png;base64,${data.image_base64}`,
     });
   } catch (err) {
     console.error("IMAGE ERROR:", err);

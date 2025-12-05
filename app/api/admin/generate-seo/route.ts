@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import Anthropic from "@anthropic-ai/sdk";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 
 // -----------------------------
 // SIMPLE IN-MEMORY RATE LIMITER
@@ -37,20 +38,17 @@ function checkRateLimit(key: string) {
 }
 
 // -----------------------------
-// POST — Generate SEO metadata
+// POST — Generate SEO metadata (Claude)
 // -----------------------------
 export async function POST(req: Request) {
   try {
     // 🔒 AUTH — Admin only
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🔒 RATE LIMIT — per user
+    // 🔒 RATE LIMIT
     const rateKey = `gen-seo:${userId}`;
     const { allowed, retryAfter } = checkRateLimit(rateKey);
 
@@ -65,9 +63,9 @@ export async function POST(req: Request) {
     }
 
     // 🔒 ENV check
-    if (!OPENAI_API_KEY) {
+    if (!CLAUDE_API_KEY) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
+        { error: "Missing CLAUDE_API_KEY" },
         { status: 500 }
       );
     }
@@ -75,12 +73,11 @@ export async function POST(req: Request) {
     // Parse incoming JSON
     const { title, content, category, tags } = await req.json();
 
-    // Build prompt safely
     const safeTitle = typeof title === "string" ? title : "";
     const safeContent = typeof content === "string" ? content : "";
     const safeCategory = typeof category === "string" ? category : "";
     const safeTags =
-      Array.isArray(tags) && tags.every(t => typeof t === "string")
+      Array.isArray(tags) && tags.every((t) => typeof t === "string")
         ? tags
         : [];
 
@@ -96,56 +93,46 @@ TAGS: ${safeTags.length ? safeTags.join(", ") : "(none)"}
 CONTENT:
 ${safeContent || "(no content provided)"}
 
-Return ONLY valid JSON in this format:
+Return ONLY valid JSON:
 {
   "meta_title": "...",
   "meta_description": "..."
 }
 
 Rules:
-- meta_title: 55–65 characters, compelling, SEO-optimized
-- meta_description: 150–160 characters, persuasive, human, not robotic
-- Do not include special markdown characters
-- No line breaks, no extra commentary
+- meta_title: 55–65 characters
+- meta_description: 150–160 characters
+- No markdown, no line breaks, no extra commentary
+- Plain strings only
 `;
 
-    // Call OpenAI
-    const completion = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.5,
-        }),
-      }
-    );
+    // Claude client
+    const client = new Anthropic({
+      apiKey: CLAUDE_API_KEY,
+      defaultHeaders: { "Anthropic-Organization": "" },
+    });
 
-    if (!completion.ok) {
-      return NextResponse.json(
-        { error: "OpenAI request failed" },
-        { status: 500 }
-      );
-    }
+    // Claude call
+    const completion = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [
+        { role: "user", content: "Return ONLY valid JSON. No backticks." },
+        { role: "user", content: prompt },
+      ],
+    });
 
-    const data = await completion.json();
-
-    if (!data.choices?.[0]?.message?.content) {
-      return NextResponse.json(
-        { error: "AI returned empty response" },
-        { status: 500 }
-      );
-    }
+    // Extract raw text from Claude
+    const text = completion.content
+      .filter((b: any) => b.type === "text")
+      .map((b: any) => b.text)
+      .join("")
+      .trim();
 
     // Safely parse JSON
     let parsed;
     try {
-      parsed = JSON.parse(data.choices[0].message.content);
+      parsed = JSON.parse(text);
     } catch {
       return NextResponse.json(
         { error: "AI returned invalid JSON" },
@@ -154,7 +141,8 @@ Rules:
     }
 
     return NextResponse.json({
-      meta_title: typeof parsed.meta_title === "string" ? parsed.meta_title : "",
+      meta_title:
+        typeof parsed.meta_title === "string" ? parsed.meta_title : "",
       meta_description:
         typeof parsed.meta_description === "string"
           ? parsed.meta_description
