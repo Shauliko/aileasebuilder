@@ -1,24 +1,35 @@
+import { PostHog } from "posthog-node";
+
+const client =
+  process.env.NEXT_PUBLIC_POSTHOG_KEY
+    ? new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
+        host: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
+      })
+    : null;
+
 export async function trackEvent(
   event: string,
   distinctId: string,
   properties: Record<string, any> = {}
 ) {
-  try {
-    const apiKey = process.env.POSTHOG_API_KEY;
-    if (!apiKey) return;
+  if (!client) {
+    console.warn("PostHog client not initialized (missing KEY)");
+    return;
+  }
 
-    await fetch(`${process.env.POSTHOG_HOST || "https://app.posthog.com"}/capture/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        event,
-        distinct_id: distinctId,
-        properties,
-      }),
+  try {
+    client.capture({
+      event,
+      distinctId,
+      properties,
     });
+
+    // Safe flush for your SDK version
+    client.flush();
+
+    // Prevent serverless from dropping the event
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
   } catch (err) {
     console.error("PostHog tracking failed:", err);
   }
