@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { trackEvent } from "@/lib/analytics/posthog";
+import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
+
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 

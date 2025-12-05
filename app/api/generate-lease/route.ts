@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { trackEvent } from "@/lib/analytics/posthog";
+import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
 import { markdownToHtml } from "../utils/markdownToHtml";
 import { createPdfFromHtml } from "../utils/createPdf";
 import { createDocxFromMarkdown } from "../utils/createDocx";

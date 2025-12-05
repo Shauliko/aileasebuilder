@@ -1,7 +1,7 @@
 // app/api/stripe/get-session/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { trackEvent } from "@/lib/analytics/posthog";
+import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

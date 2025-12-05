@@ -1,7 +1,8 @@
 // app/api/create-checkout-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { trackEvent } from "@/lib/analytics/posthog";
+import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { auth } from "@clerk/nextjs/server";
-import { trackEvent } from "@/lib/analytics/posthog";
+import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
+
 
 const postsDir = path.join(process.cwd(), "content/posts");
 
