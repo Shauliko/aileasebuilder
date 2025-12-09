@@ -13,7 +13,8 @@ export function generateStaticParams() {
   return tags.map((t) => ({ tag: t }));
 }
 
-export default async function TagPage({ params }: { params: { tag: string } }) {
+export default async function TagPage(props: any) {
+  const { params } = props;
   const now = Date.now();
 
   const all = getAllPosts();

@@ -3,10 +3,6 @@ export const revalidate = 10;
 import { getPost, getAllPosts } from "@/lib/getPost";
 import Link from "next/link";
 
-interface BlogPostProps {
-  params: { slug: string };
-}
-
 /** STATIC PARAMS */
 export function generateStaticParams() {
   const posts = getAllPosts();
@@ -15,11 +11,10 @@ export function generateStaticParams() {
 
 /** METADATA */
 export async function generateMetadata(props: any) {
-  const { slug } = await props.params; // REQUIRED in Next 16
+  const { slug } = props.params; // WORKS with Next 15/16
 
   const post = getPost(slug);
 
-  // If post doesn't exist → 404 metadata
   if (!post) {
     return {
       title: "Post Not Found",
@@ -27,9 +22,6 @@ export async function generateMetadata(props: any) {
     };
   }
 
-  // ================================
-  // DRAFT + FUTURE SCHEDULED BLOCK
-  // ================================
   const now = Date.now();
 
   const isDraft =
@@ -70,11 +62,11 @@ export async function generateMetadata(props: any) {
 
 /** PAGE */
 export default async function BlogPostPage(props: any) {
-  const { slug } = await props.params; // REQUIRED in Next 16
+  const { params } = props;
+  const { slug } = params;
 
   const post = getPost(slug);
 
-  // If file doesn't exist → 404 page
   if (!post) {
     return (
       <main className="max-w-3xl mx-auto py-16 px-4">
@@ -84,9 +76,6 @@ export default async function BlogPostPage(props: any) {
     );
   }
 
-  // ================================
-  // DRAFT + FUTURE SCHEDULED BLOCK
-  // ================================
   const now = Date.now();
 
   const isDraft =
@@ -107,10 +96,6 @@ export default async function BlogPostPage(props: any) {
     );
   }
 
-  // ================================
-  // AUTO-PUBLISH SCHEDULED POSTS
-  // (Rendered correctly even though JSON is unchanged)
-  // ================================
   const effectiveDate =
     post.published_at ||
     (post.publish_at && new Date(post.publish_at).toISOString()) ||
