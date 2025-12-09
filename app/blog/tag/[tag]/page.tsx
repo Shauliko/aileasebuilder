@@ -1,27 +1,30 @@
-import { getAllPosts } from "@/lib/getPost";
-import Link from "next/link";
+// app/blog/tag/[tag]/page.tsx
+export const revalidate = 10;
 
-export function generateStaticParams() {
-  const posts = getAllPosts();
+import Link from "next/link";
+import { getAllPosts } from "@/lib/getPost";
+
+type PageParams = {
+  params: { tag: string };
+};
+
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
   const tags = Array.from(
     new Set(
-      posts.flatMap((p) =>
-        Array.isArray(p.tags) ? p.tags : []
-      )
+      posts.flatMap((p) => (Array.isArray(p.tags) ? p.tags : []))
     )
-  );
+  ) as string[];
+
   return tags.map((t) => ({ tag: t }));
 }
 
-export default async function TagPage(props: any) {
-  const { params } = props;
+export default async function TagPage({ params }: PageParams) {
   const now = Date.now();
-
-  const all = getAllPosts();
+  const all = await getAllPosts();
 
   const posts = all
-    .map((p: any) => {
-      // Auto-publish scheduled posts whose time has passed
+    .map((p) => {
       if (p.published_at === null && p.publish_at) {
         const ts = new Date(p.publish_at).getTime();
         if (ts <= now) {
@@ -34,25 +37,20 @@ export default async function TagPage(props: any) {
       }
       return p;
     })
-    .filter((p: any) => {
-      // Must contain the tag
+    .filter((p) => {
       if (!Array.isArray(p.tags)) return false;
       if (!p.tags.includes(params.tag)) return false;
 
-      // Draft check
       const isDraft =
         p.published_at === null &&
         (p.publish_at === null || p.publish_at === "");
 
-      // Future scheduled check
       const isScheduledFuture =
         p.published_at === null &&
         p.publish_at &&
         new Date(p.publish_at).getTime() > now;
 
-      // Hide drafts + future scheduled
       if (isDraft || isScheduledFuture) return false;
-
       return true;
     });
 
@@ -65,7 +63,7 @@ export default async function TagPage(props: any) {
       )}
 
       <ul className="space-y-6">
-        {posts.map((post: any) => (
+        {posts.map((post) => (
           <li key={post.slug}>
             <Link
               href={`/blog/${post.slug}`}

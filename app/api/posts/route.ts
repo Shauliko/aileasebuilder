@@ -1,26 +1,38 @@
+// app/api/posts/route.ts
 import { NextResponse } from "next/server";
 import { getAllPosts } from "@/lib/getPost";
 
-/**
- * PUBLIC POSTS API
- * Returns ONLY posts that should be visible publicly:
- * - publish_at <= now OR publish_at not set
- * - NOT scheduled in the future
- */
 export async function GET() {
-  const all = getAllPosts();
-
   const now = Date.now();
+  const all = await getAllPosts();
 
-  const visible = all.filter((post: any) => {
-    // If scheduled and future → hide
-    if (post.publish_at) {
-      const ts = new Date(post.publish_at).getTime();
-      if (ts > now) return false;
-    }
+  const posts = all
+    .map((p) => {
+      if (p.published_at === null && p.publish_at) {
+        const ts = new Date(p.publish_at).getTime();
+        if (ts <= now) {
+          return {
+            ...p,
+            published_at: p.publish_at,
+            publish_at: null,
+          };
+        }
+      }
+      return p;
+    })
+    .filter((p) => {
+      const isDraft =
+        p.published_at === null &&
+        (p.publish_at === null || p.publish_at === "");
 
-    return true;
-  });
+      const isScheduledFuture =
+        p.published_at === null &&
+        p.publish_at &&
+        new Date(p.publish_at).getTime() > now;
 
-  return NextResponse.json({ posts: visible });
+      if (isDraft || isScheduledFuture) return false;
+      return true;
+    });
+
+  return NextResponse.json({ posts });
 }

@@ -1,25 +1,28 @@
-import { getAllPosts } from "@/lib/getPost";
-import Link from "next/link";
+// app/blog/category/[category]/page.tsx
+export const revalidate = 10;
 
-export function generateStaticParams() {
-  const posts = getAllPosts();
-  const categories = Array.from(new Set(posts.map((p) => p.category)));
+import Link from "next/link";
+import { getAllPosts } from "@/lib/getPost";
+
+type PageParams = {
+  params: { category: string };
+};
+
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
+  const categories = Array.from(
+    new Set(posts.map((p) => p.category).filter(Boolean))
+  ) as string[];
+
   return categories.map((c) => ({ category: c }));
 }
 
-export default async function CategoryPage(props: any) {
-  const { params } = props;
+export default async function CategoryPage({ params }: PageParams) {
   const now = Date.now();
+  const all = await getAllPosts();
 
-  // Load everything
-  const all = getAllPosts();
-
-  // ================================
-  // FILTER: Only show published posts
-  // ================================
   const posts = all
-    .map((p: any) => {
-      // Auto-publish scheduled posts that have passed
+    .map((p) => {
       if (p.published_at === null && p.publish_at) {
         const ts = new Date(p.publish_at).getTime();
         if (ts <= now) {
@@ -32,8 +35,8 @@ export default async function CategoryPage(props: any) {
       }
       return p;
     })
-    .filter((p: any) => p.category === params.category)
-    .filter((p: any) => {
+    .filter((p) => p.category === params.category)
+    .filter((p) => {
       const isDraft =
         p.published_at === null &&
         (p.publish_at === null || p.publish_at === "");
@@ -43,9 +46,7 @@ export default async function CategoryPage(props: any) {
         p.publish_at &&
         new Date(p.publish_at).getTime() > now;
 
-      // Hide drafts + future scheduled
       if (isDraft || isScheduledFuture) return false;
-
       return true;
     });
 
@@ -55,8 +56,12 @@ export default async function CategoryPage(props: any) {
         Category: {params.category}
       </h1>
 
+      {posts.length === 0 && (
+        <p className="text-gray-400">No posts in this category yet.</p>
+      )}
+
       <ul className="space-y-6">
-        {posts.map((post: any) => (
+        {posts.map((post) => (
           <li key={post.slug}>
             <Link
               href={`/blog/${post.slug}`}

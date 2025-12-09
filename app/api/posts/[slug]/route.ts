@@ -1,31 +1,31 @@
-import { NextResponse, NextRequest } from "next/server";
-import { getAllPosts } from "@/lib/getPost";
+// app/api/posts/[slug]/route.ts
+import { NextResponse } from "next/server";
+import { getPost } from "@/lib/getPost";
 
-/**
- * PUBLIC — SINGLE POST ENDPOINT
- * Returns ONE post only if:
- * - It exists
- * - It is NOT scheduled for the future
- */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await context.params;
+type RouteParams = {
+  params: { slug: string };
+};
 
-  const all = getAllPosts();
-  const post = all.find((p: any) => p.slug === slug);
+export async function GET(_req: Request, { params }: RouteParams) {
+  const post = await getPost(params.slug);
 
   if (!post) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Block scheduled posts
-  if (post.publish_at) {
-    const ts = new Date(post.publish_at).getTime();
-    if (ts > Date.now()) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+  const now = Date.now();
+
+  const isDraft =
+    post.published_at === null &&
+    (post.publish_at === null || post.publish_at === "");
+
+  const isScheduledFuture =
+    post.published_at === null &&
+    post.publish_at &&
+    new Date(post.publish_at).getTime() > now;
+
+  if (isDraft || isScheduledFuture) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   return NextResponse.json({ post });

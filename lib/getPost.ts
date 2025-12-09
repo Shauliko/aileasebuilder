@@ -1,70 +1,85 @@
-import fs from "fs";
-import path from "path";
+// lib/getPost.ts
 import { marked } from "marked";
+import { sql } from "@/lib/db";
 
-/**
- * Load ALL posts (even drafts & scheduled ones).
- * Used by admin.
- */
-export function getAllPosts() {
-  const postsDir = path.join(process.cwd(), "content/posts");
-  const files = fs.readdirSync(postsDir);
+type DBPost = {
+  slug: string;
+  title: string;
+  date: string;
+  category: string | null;
+  tags: string[] | null;
+  featured: boolean | null;
+  publish_at: string | null;
+  published_at: string | null;
+  content: string;
+  meta_title: string | null;
+  meta_description: string | null;
+};
 
-  return files.map((file) => {
-    const slug = file.replace(".json", "");
-    const data = JSON.parse(
-      fs.readFileSync(path.join(postsDir, file), "utf-8")
-    );
-
-    // ============================
-    // BACKWARD-COMPATIBILITY FIXES
-    // ============================
-
-    return {
-      slug,
-
-      // NEW: published_at (draft support)
-      published_at: data.published_at ?? null,
-
-      // Already existing scheduled publish date
-      publish_at: data.publish_at ?? null,
-
-      // SEO fields (ensure they exist)
-      meta_title: data.meta_title ?? "",
-      meta_description: data.meta_description ?? "",
-
-      ...data,
-    };
-  });
-}
-
-/**
- * Load ONE post (admin + public)
- * Includes rendered HTML.
- */
-export function getPost(slug: string) {
-  const filePath = path.join(process.cwd(), "content/posts", `${slug}.json`);
-  if (!fs.existsSync(filePath)) return null;
-
-  const post = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-
-  // ============================
-  // BACKWARD-COMPATIBILITY FIXES
-  // ============================
-  const finalPost = {
-    slug,
-
+// Normalize DB row → common shape used everywhere
+function normalize(post: DBPost) {
+  return {
+    ...post,
+    tags: Array.isArray(post.tags) ? post.tags : [],
     published_at: post.published_at ?? null,
     publish_at: post.publish_at ?? null,
-
     meta_title: post.meta_title ?? "",
     meta_description: post.meta_description ?? "",
+  };
+}
 
+// -----------------------------
+// GET ALL POSTS (admin + pages)
+// -----------------------------
+export async function getAllPosts() {
+  const rows = (await sql`
+    SELECT
+      slug,
+      title,
+      date,
+      category,
+      tags,
+      featured,
+      publish_at,
+      published_at,
+      content,
+      meta_title,
+      meta_description
+    FROM blog_posts
+    ORDER BY date DESC
+  `) as DBPost[];
+
+  return rows.map(normalize);
+}
+
+// -----------------------------
+// GET ONE POST (admin + public)
+// -----------------------------
+export async function getPost(slug: string) {
+  const rows = (await sql`
+    SELECT
+      slug,
+      title,
+      date,
+      category,
+      tags,
+      featured,
+      publish_at,
+      published_at,
+      content,
+      meta_title,
+      meta_description
+    FROM blog_posts
+    WHERE slug = ${slug}
+    LIMIT 1
+  `) as DBPost[];
+
+  if (rows.length === 0) return null;
+
+  const post = normalize(rows[0]);
+
+  return {
     ...post,
-
-    // Render markdown → HTML
     html: marked.parse(post.content || ""),
   };
-
-  return finalPost;
 }

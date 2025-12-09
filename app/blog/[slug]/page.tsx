@@ -1,19 +1,22 @@
+// app/blog/[slug]/page.tsx
 export const revalidate = 10;
 
-import { getPost, getAllPosts } from "@/lib/getPost";
 import Link from "next/link";
+import { getAllPosts, getPost } from "@/lib/getPost";
 
-/** STATIC PARAMS */
-export function generateStaticParams() {
-  const posts = getAllPosts();
+type PageParams = {
+  params: { slug: string };
+};
+
+// --------- STATIC PARAMS ----------
+export async function generateStaticParams() {
+  const posts = await getAllPosts();
   return posts.map((p) => ({ slug: p.slug }));
 }
 
-/** METADATA */
-export async function generateMetadata(props: any) {
-  const { slug } = props.params; // WORKS with Next 15/16
-
-  const post = getPost(slug);
+// --------- METADATA ----------
+export async function generateMetadata({ params }: PageParams) {
+  const post = await getPost(params.slug);
 
   if (!post) {
     return {
@@ -48,11 +51,7 @@ export async function generateMetadata(props: any) {
   const seoDescription =
     post.meta_description && post.meta_description.trim() !== ""
       ? post.meta_description
-      : (
-          post.content
-            ?.replace(/[#*_>\-\[\]\(\)`]/g, "")
-            ?.slice(0, 160) || ""
-        );
+      : (post.content || "").replace(/[#*_>\-\[\]\(\)`]/g, "").slice(0, 160);
 
   return {
     title: seoTitle,
@@ -60,12 +59,9 @@ export async function generateMetadata(props: any) {
   };
 }
 
-/** PAGE */
-export default async function BlogPostPage(props: any) {
-  const { params } = props;
-  const { slug } = params;
-
-  const post = getPost(slug);
+// --------- PAGE ----------
+export default async function BlogPostPage({ params }: PageParams) {
+  const post = await getPost(params.slug);
 
   if (!post) {
     return (
@@ -120,7 +116,7 @@ export default async function BlogPostPage(props: any) {
 
       {post.tags?.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-8">
-          {post.tags.map((tag: string) => (
+          {post.tags.map((tag) => (
             <Link
               key={tag}
               href={`/blog/tag/${tag}`}
@@ -133,7 +129,7 @@ export default async function BlogPostPage(props: any) {
       )}
 
       <article
-        className="prose"
+        className="prose prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: post.html }}
       />
     </main>
