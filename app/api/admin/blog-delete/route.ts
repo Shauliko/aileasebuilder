@@ -1,30 +1,22 @@
+// app/api/admin/blog-delete/route.ts
 import { NextResponse, NextRequest } from "next/server";
-import fs from "fs";
-import path from "path";
 import { auth } from "@clerk/nextjs/server";
-
-const postsDir = path.join(process.cwd(), "content/posts");
+import { sql } from "@/lib/db";
 
 // Validate slug characters
 function isValidSlug(slug: string) {
   return /^[a-zA-Z0-9-_]+$/.test(slug);
 }
 
-// -----------------------------
-// DELETE POST (ADMIN ONLY)
-// -----------------------------
 export async function DELETE(request: NextRequest) {
   try {
-    // 🔒 AUTH — Protect route
+    // Auth check
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse body
+    // Parse JSON body
     const { slug } = await request.json();
 
     if (!slug || typeof slug !== "string") {
@@ -34,7 +26,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Sanitize
     if (!isValidSlug(slug)) {
       return NextResponse.json(
         { error: "Invalid slug format" },
@@ -42,18 +33,19 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const filePath = path.join(postsDir, `${slug}.json`);
+    // Check existence + delete
+    const result = await sql`
+      DELETE FROM blog_posts
+      WHERE slug = ${slug}
+      RETURNING slug
+    `;
 
-    // Check existence
-    if (!fs.existsSync(filePath)) {
+    if (result.length === 0) {
       return NextResponse.json(
         { error: "Post not found" },
         { status: 404 }
       );
     }
-
-    // Delete
-    fs.unlinkSync(filePath);
 
     return NextResponse.json({ success: true });
   } catch (err) {

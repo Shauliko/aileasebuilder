@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.71.0",
     "@clerk/clerk-sdk-node": "^4.13.23",
     "@clerk/nextjs": "^6.35.4",
+    "@neondatabase/serverless": "^1.0.2",
     "@supabase/supabase-js": "^2.86.0",
     "@vercel/postgres": "^0.10.0",
     "cross-env": "^10.1.0",
