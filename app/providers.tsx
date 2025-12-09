@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
 import { PostHogProvider } from "posthog-js/react";
 import posthog from "posthog-js";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    // Runs only in browser, AFTER hydration is stable.
-    posthog.init("phc_sKUpmovsUBLuwG7NsDIZd0PvNP9iLGQaaIyhf9npl7g", {
-      api_host: "https://us.i.posthog.com",
-      capture_pageview: true,
-      autocapture: true,
-    });
-  }, []);
+// Make posthog available globally (browser console + debugging)
+if (typeof window !== "undefined") {
+  (window as any).posthog = posthog;
 
+  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+    api_host: "https://us.i.posthog.com",
+    capture_pageview: true,    // REQUIRED
+    autocapture: true,         // enables click tracking
+  });
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 }
