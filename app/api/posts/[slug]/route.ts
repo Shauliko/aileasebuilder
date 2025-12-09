@@ -4,9 +4,9 @@ import { marked } from "marked";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = params;
+  const { slug } = await context.params;
 
   // Fetch from database
   const result =
