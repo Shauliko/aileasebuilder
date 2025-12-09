@@ -3,10 +3,6 @@ export const revalidate = 10;
 import { getPost, getAllPosts } from "@/lib/getPost";
 import Link from "next/link";
 
-interface BlogPostProps {
-  params: { slug: string };
-}
-
 /** STATIC PARAMS */
 export function generateStaticParams() {
   const posts = getAllPosts();
@@ -14,8 +10,8 @@ export function generateStaticParams() {
 }
 
 /** METADATA */
-export async function generateMetadata(props: any) {
-  const { slug } = await props.params; // REQUIRED in Next 16
+export async function generateMetadata({ params }: { params: { slug: string } }) {
+  const { slug } = params;
 
   const post = getPost(slug);
 
@@ -33,7 +29,8 @@ export async function generateMetadata(props: any) {
   const now = Date.now();
 
   const isDraft =
-    post.published_at === null && (post.publish_at === null || post.publish_at === "");
+    post.published_at === null &&
+    (post.publish_at === null || post.publish_at === "");
 
   const isScheduledFuture =
     post.published_at === null &&
@@ -47,7 +44,6 @@ export async function generateMetadata(props: any) {
     };
   }
 
-  // Otherwise, auto-publish if needed
   const seoTitle =
     post.meta_title && post.meta_title.trim() !== ""
       ? post.meta_title
@@ -69,8 +65,8 @@ export async function generateMetadata(props: any) {
 }
 
 /** PAGE */
-export default async function BlogPostPage(props: any) {
-  const { slug } = await props.params; // REQUIRED in Next 16
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
 
   const post = getPost(slug);
 
@@ -109,7 +105,6 @@ export default async function BlogPostPage(props: any) {
 
   // ================================
   // AUTO-PUBLISH SCHEDULED POSTS
-  // (Rendered correctly even though JSON is unchanged)
   // ================================
   const effectiveDate =
     post.published_at ||
@@ -138,7 +133,7 @@ export default async function BlogPostPage(props: any) {
           {post.tags.map((tag: string) => (
             <Link
               key={tag}
-              href={`/tag/${tag}`}
+              href={`/blog/tag/${tag}`}
               className="px-2 py-1 text-xs bg-blue-600/20 text-blue-300 rounded-md"
             >
               #{tag}

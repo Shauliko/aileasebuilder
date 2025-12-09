@@ -7,7 +7,7 @@ export function generateStaticParams() {
   return categories.map((c) => ({ category: c }));
 }
 
-export default function CategoryPage({ params }: { params: { category: string } }) {
+export default async function CategoryPage({ params }: { params: { category: string } }) {
   const now = Date.now();
 
   // Load everything
