@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getAllPosts } from "@/lib/getPost";
 
 type PageParams = {
-  params: { category: string };
+  params: Promise<{ category: string }>;
 };
 
 export async function generateStaticParams() {
@@ -18,6 +18,7 @@ export async function generateStaticParams() {
 }
 
 export default async function CategoryPage({ params }: PageParams) {
+  const { category } = await params; // ← REQUIRED FIX
   const now = Date.now();
   const all = await getAllPosts();
 
@@ -35,7 +36,7 @@ export default async function CategoryPage({ params }: PageParams) {
       }
       return p;
     })
-    .filter((p) => p.category === params.category)
+    .filter((p) => p.category === category)
     .filter((p) => {
       const isDraft =
         p.published_at === null &&
@@ -53,7 +54,7 @@ export default async function CategoryPage({ params }: PageParams) {
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
       <h1 className="text-4xl font-bold mb-8">
-        Category: {params.category}
+        Category: {category}
       </h1>
 
       {posts.length === 0 && (

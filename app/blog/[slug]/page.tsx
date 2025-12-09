@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getAllPosts, getPost } from "@/lib/getPost";
 
 type PageParams = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 // --------- STATIC PARAMS ----------
@@ -16,7 +16,8 @@ export async function generateStaticParams() {
 
 // --------- METADATA ----------
 export async function generateMetadata({ params }: PageParams) {
-  const post = await getPost(params.slug);
+  const { slug } = await params;
+  const post = await getPost(slug);
 
   if (!post) {
     return {
@@ -61,7 +62,8 @@ export async function generateMetadata({ params }: PageParams) {
 
 // --------- PAGE ----------
 export default async function BlogPostPage({ params }: PageParams) {
-  const post = await getPost(params.slug);
+  const { slug } = await params;
+  const post = await getPost(slug);
 
   if (!post) {
     return (

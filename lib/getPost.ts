@@ -16,23 +16,24 @@ type DBPost = {
   meta_description: string | null;
 };
 
-// Normalize DB row → common shape used everywhere
+// Normalize DB → internal format
 function normalize(post: DBPost) {
   return {
     ...post,
     tags: Array.isArray(post.tags) ? post.tags : [],
-    published_at: post.published_at ?? null,
+    featured: post.featured ?? false,
     publish_at: post.publish_at ?? null,
+    published_at: post.published_at ?? null,
     meta_title: post.meta_title ?? "",
     meta_description: post.meta_description ?? "",
   };
 }
 
-// -----------------------------
-// GET ALL POSTS (admin + pages)
-// -----------------------------
+// ---------------------------------------------------
+// GET ALL POSTS
+// ---------------------------------------------------
 export async function getAllPosts() {
-  const rows = (await sql`
+  const rows = await sql`
     SELECT
       slug,
       title,
@@ -47,16 +48,16 @@ export async function getAllPosts() {
       meta_description
     FROM blog_posts
     ORDER BY date DESC
-  `) as DBPost[];
+  `;
 
-  return rows.map(normalize);
+  return (rows as unknown as DBPost[]).map(normalize);
 }
 
-// -----------------------------
-// GET ONE POST (admin + public)
-// -----------------------------
+// ---------------------------------------------------
+// GET ONE POST
+// ---------------------------------------------------
 export async function getPost(slug: string) {
-  const rows = (await sql`
+  const rows = await sql`
     SELECT
       slug,
       title,
@@ -72,11 +73,12 @@ export async function getPost(slug: string) {
     FROM blog_posts
     WHERE slug = ${slug}
     LIMIT 1
-  `) as DBPost[];
+  `;
 
-  if (rows.length === 0) return null;
+  const list = rows as unknown as DBPost[];
+  if (list.length === 0) return null;
 
-  const post = normalize(rows[0]);
+  const post = normalize(list[0]);
 
   return {
     ...post,

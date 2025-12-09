@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getAllPosts } from "@/lib/getPost";
 
 type PageParams = {
-  params: { tag: string };
+  params: Promise<{ tag: string }>;
 };
 
 export async function generateStaticParams() {
@@ -20,6 +20,7 @@ export async function generateStaticParams() {
 }
 
 export default async function TagPage({ params }: PageParams) {
+  const { tag } = await params; // Next 16 fix
   const now = Date.now();
   const all = await getAllPosts();
 
@@ -39,7 +40,7 @@ export default async function TagPage({ params }: PageParams) {
     })
     .filter((p) => {
       if (!Array.isArray(p.tags)) return false;
-      if (!p.tags.includes(params.tag)) return false;
+      if (!p.tags.includes(tag)) return false;
 
       const isDraft =
         p.published_at === null &&
@@ -56,7 +57,7 @@ export default async function TagPage({ params }: PageParams) {
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
-      <h1 className="text-4xl font-bold mb-8">Tag: #{params.tag}</h1>
+      <h1 className="text-4xl font-bold mb-8">Tag: #{tag}</h1>
 
       {posts.length === 0 && (
         <p className="text-gray-400">No posts found for this tag.</p>
