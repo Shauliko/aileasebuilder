@@ -3,6 +3,10 @@ export const revalidate = 10;
 import { getPost, getAllPosts } from "@/lib/getPost";
 import Link from "next/link";
 
+interface BlogPostProps {
+  params: { slug: string };
+}
+
 /** STATIC PARAMS */
 export function generateStaticParams() {
   const posts = getAllPosts();
@@ -10,8 +14,8 @@ export function generateStaticParams() {
 }
 
 /** METADATA */
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export async function generateMetadata(props: any) {
+  const { slug } = await props.params; // REQUIRED in Next 16
 
   const post = getPost(slug);
 
@@ -65,8 +69,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 /** PAGE */
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default async function BlogPostPage(props: any) {
+  const { slug } = await props.params; // REQUIRED in Next 16
 
   const post = getPost(slug);
 
@@ -105,6 +109,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
 
   // ================================
   // AUTO-PUBLISH SCHEDULED POSTS
+  // (Rendered correctly even though JSON is unchanged)
   // ================================
   const effectiveDate =
     post.published_at ||
