@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import NavWrapper from "./NavWrapper";
 import Script from "next/script";
 import CookieBanner from "./components/CookieBanner";
+import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -82,62 +83,67 @@ export default function RootLayout({
               }),
             }}
           />
+
           {/* GOOGLE ADS TAG */}
-            <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17780439036"></script>
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', 'AW-17780439036');
-                `,
-              }}
-            />
-            
+          <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17780439036"></script>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'AW-17780439036');
+              `,
+            }}
+          />
         </head>
-      <body
+
+        <body
           className={`${inter.className} bg-[#050816] text-white min-h-screen`}
         >
-          <NavWrapper />
+          <Providers>
+            <>
+              <NavWrapper />
 
-          <main className="w-full min-h-screen bg-[#050816] text-gray-300 pt-24">
-            {children}
-          </main>
+              <main className="w-full min-h-screen bg-[#050816] text-gray-300 pt-24">
+                {children}
+              </main>
 
-          <footer className="w-full border-t border-white/10 bg-[#050816]/90 backdrop-blur mt-10">
-            <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center gap-6 text-sm text-gray-400">
-              <a href="/blog" className="hover:text-white transition">
-                Blog
-              </a>
-              <a href="/about" className="hover:text-white transition">
-                About
-              </a>
-              <a href="/contact" className="hover:text-white transition">
-                Contact
-              </a>
-              <a
-                href="/legal/terms"
-                className="hover:text-white transition"
-              >
-                Terms
-              </a>
-              <a
-                href="/legal/privacy"
-                className="hover:text-white transition"
-              >
-                Privacy
-              </a>
-              <a
-                href="/legal/disclaimer"
-                className="hover:text-white transition"
-              >
-                Disclaimer
-              </a>
-            </div>
-          </footer>
+              <footer className="w-full border-t border-white/10 bg-[#050816]/90 backdrop-blur mt-10">
+                <div className="max-w-6xl mx-auto px-4 py-6 flex items-center justify-center gap-6 text-sm text-gray-400">
+                  <a href="/blog" className="hover:text-white transition">
+                    Blog
+                  </a>
+                  <a href="/about" className="hover:text-white transition">
+                    About
+                  </a>
+                  <a href="/contact" className="hover:text-white transition">
+                    Contact
+                  </a>
+                  <a
+                    href="/legal/terms"
+                    className="hover:text-white transition"
+                  >
+                    Terms
+                  </a>
+                  <a
+                    href="/legal/privacy"
+                    className="hover:text-white transition"
+                  >
+                    Privacy
+                  </a>
+                  <a
+                    href="/legal/disclaimer"
+                    className="hover:text-white transition"
+                  >
+                    Disclaimer
+                  </a>
+                </div>
+              </footer>
 
-          <CookieBanner />
+              <CookieBanner />
+            </>
+          </Providers>
         </body>
       </html>
     </ClerkProvider>
