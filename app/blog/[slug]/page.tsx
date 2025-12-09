@@ -94,10 +94,11 @@ export default async function BlogPostPage({ params }: PageParams) {
     );
   }
 
-  const effectiveDate =
-    post.published_at ||
-    (post.publish_at && new Date(post.publish_at).toISOString()) ||
-    post.date;
+  const effectiveDate = (() => {
+    if (post.published_at) return String(post.published_at);
+    if (post.publish_at) return new Date(post.publish_at).toISOString();
+    return String(post.date);
+  })();
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
