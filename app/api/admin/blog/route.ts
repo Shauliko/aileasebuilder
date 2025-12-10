@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
 import { trackEventServer as trackEvent } from "@/lib/analytics/posthog-server";
@@ -24,7 +24,7 @@ function isValidSlug(slug: string) {
 // -------------------------------------------------------
 // GET — Fetch a single post: /api/admin/blog?slug=abc
 // -------------------------------------------------------
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -62,6 +62,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ post });
+
   } catch (err) {
     console.error("GET /api/admin/blog error", err);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
@@ -71,7 +72,7 @@ export async function GET(req: Request) {
 // -------------------------------------------------------
 // POST — Create (or overwrite) a post
 // -------------------------------------------------------
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
     if (!slug || !title || !date || !content) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -146,6 +147,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
     console.error("POST /api/admin/blog error", err);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
@@ -155,7 +157,7 @@ export async function POST(req: Request) {
 // -------------------------------------------------------
 // PUT — Update existing post
 // -------------------------------------------------------
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -180,7 +182,7 @@ export async function PUT(req: Request) {
     if (!slug || !title || !date || !content) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -220,6 +222,7 @@ export async function PUT(req: Request) {
     });
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
     console.error("PUT /api/admin/blog error", err);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });

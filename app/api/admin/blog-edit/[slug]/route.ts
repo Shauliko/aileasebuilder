@@ -12,14 +12,13 @@ function isValidSlug(slug: string) {
 
 // --------------------------------------------------
 // GET — Load a post for editing
-// /api/admin/blog-edit/[slug]
 // --------------------------------------------------
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await context.params; // ✅ Next 16 requires awaiting params
+    const { slug } = await context.params; // ✅ Next 16 unwrap
 
     const { userId } = await auth();
     if (!userId) {
@@ -37,8 +36,8 @@ export async function GET(
     }
 
     const post = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-
     return NextResponse.json({ post });
+
   } catch (err) {
     console.error("BLOG EDIT GET ERROR:", err);
     return NextResponse.json(
@@ -56,7 +55,7 @@ export async function PUT(
   context: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await context.params; // ✅ unwrap params Promise
+    const { slug } = await context.params; // ✅ unwrap Promise
 
     const { userId } = await auth();
     if (!userId) {
@@ -114,6 +113,7 @@ export async function PUT(
     fs.writeFileSync(filePath, JSON.stringify(postData, null, 2));
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
     console.error("BLOG EDIT PUT ERROR:", err);
     return NextResponse.json(

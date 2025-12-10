@@ -4,11 +4,10 @@ import { marked } from "marked";
 
 export async function GET(
   _req: NextRequest,
-  context: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> } // <-- MUST be Promise
 ) {
-  const { slug } = await context.params;
+  const { slug } = await context.params; // <-- MUST unwrap
 
-  // Fetch from database
   const result =
     await sql`SELECT * FROM blog_posts WHERE slug = ${slug} LIMIT 1`;
 
@@ -32,7 +31,6 @@ export async function GET(
     html: marked.parse(post.content || ""),
   };
 
-  // Hide drafts + future scheduled posts
   const now = Date.now();
 
   const isDraft =
