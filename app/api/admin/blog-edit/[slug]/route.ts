@@ -1,41 +1,43 @@
-import { NextResponse, NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import fs from "fs";
 import path from "path";
 
 const postsDir = path.join(process.cwd(), "content/posts");
 
+// Slug validation
 function isValidSlug(slug: string) {
   return /^[a-zA-Z0-9-_]+$/.test(slug);
 }
 
-// --------------------------------------------
-// GET — Fetch a post for editing
+// --------------------------------------------------
+// GET — Load a post for editing
 // /api/admin/blog-edit/[slug]
-// --------------------------------------------
+// --------------------------------------------------
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { slug: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await context.params; // ✅ Next 16 requires awaiting params
+
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { slug } = params;
-
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
 
-    const file = path.join(postsDir, `${slug}.json`);
+    const filePath = path.join(postsDir, `${slug}.json`);
 
-    if (!fs.existsSync(file)) {
+    if (!fs.existsSync(filePath)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const post = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const post = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+
     return NextResponse.json({ post });
   } catch (err) {
     console.error("BLOG EDIT GET ERROR:", err);
@@ -46,28 +48,28 @@ export async function GET(
   }
 }
 
-// --------------------------------------------
-// PUT — Save edits to a post
-// --------------------------------------------
+// --------------------------------------------------
+// PUT — Save edited post
+// --------------------------------------------------
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await context.params; // ✅ unwrap params Promise
+
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { slug } = params;
-
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
 
-    const file = path.join(postsDir, `${slug}.json`);
+    const filePath = path.join(postsDir, `${slug}.json`);
 
-    if (!fs.existsSync(file)) {
+    if (!fs.existsSync(filePath)) {
       return NextResponse.json(
         { error: "Post not found" },
         { status: 404 }
@@ -102,16 +104,14 @@ export async function PUT(
       category: category || "",
       tags: Array.isArray(tags) ? tags : [],
       featured: !!featured,
-
       published_at: published_at ?? null,
       publish_at: publish_at ?? null,
-
       content,
       meta_title: meta_title ?? "",
       meta_description: meta_description ?? "",
     };
 
-    fs.writeFileSync(file, JSON.stringify(postData, null, 2));
+    fs.writeFileSync(filePath, JSON.stringify(postData, null, 2));
 
     return NextResponse.json({ success: true });
   } catch (err) {
