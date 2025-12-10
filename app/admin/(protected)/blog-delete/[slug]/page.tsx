@@ -1,7 +1,7 @@
 import BlogDeleteClient from "./BlogDeleteClient";
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }
 
 export default async function BlogDeletePage(props: PageProps) {

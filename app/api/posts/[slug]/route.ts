@@ -4,7 +4,7 @@ import { marked } from "marked";
 
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<{ slug: string }> }
+  context: { params: { slug: string } }
 ) {
   const { slug } = await context.params;
 

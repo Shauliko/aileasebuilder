@@ -1,9 +1,9 @@
-// app/blog/[slug]/page.tsx
 export const revalidate = 10;
 
 import Link from "next/link";
 import { getAllPosts, getPost } from "@/lib/getPost";
 
+// In Next 16 dynamic routes, params is a Promise
 type PageParams = {
   params: Promise<{ slug: string }>;
 };
@@ -16,33 +16,27 @@ export async function generateStaticParams() {
 
 // --------- METADATA ----------
 export async function generateMetadata({ params }: PageParams) {
-  const { slug } = await params;
+  const { slug } = await params; // ✅ unwrap Promise
+
   const post = await getPost(slug);
 
-  if (!post) {
-    return {
-      title: "Post Not Found",
-      description: "This blog post does not exist.",
-    };
-  }
+  const notFoundMeta = {
+    title: "Post Not Found",
+    description: "This blog post does not exist.",
+  };
+
+  if (!post) return notFoundMeta;
 
   const now = Date.now();
 
   const isDraft =
     post.published_at === null &&
-    (post.publish_at === null || post.publish_at === "");
+    (!post.publish_at || post.publish_at === "");
 
   const isScheduledFuture =
-    post.published_at === null &&
-    post.publish_at &&
-    new Date(post.publish_at).getTime() > now;
+    post.publish_at && new Date(post.publish_at).getTime() > now;
 
-  if (isDraft || isScheduledFuture) {
-    return {
-      title: "Post Not Found",
-      description: "This blog post does not exist.",
-    };
-  }
+  if (isDraft || isScheduledFuture) return notFoundMeta;
 
   const seoTitle =
     post.meta_title && post.meta_title.trim() !== ""
@@ -52,7 +46,9 @@ export async function generateMetadata({ params }: PageParams) {
   const seoDescription =
     post.meta_description && post.meta_description.trim() !== ""
       ? post.meta_description
-      : (post.content || "").replace(/[#*_>\-\[\]\(\)`]/g, "").slice(0, 160);
+      : (post.content || "")
+          .replace(/[#*_>\-\[\]\(\)`]/g, "")
+          .slice(0, 160);
 
   return {
     title: seoTitle,
@@ -62,7 +58,8 @@ export async function generateMetadata({ params }: PageParams) {
 
 // --------- PAGE ----------
 export default async function BlogPostPage({ params }: PageParams) {
-  const { slug } = await params;
+  const { slug } = await params; // ✅ unwrap Promise
+
   const post = await getPost(slug);
 
   if (!post) {
@@ -78,12 +75,10 @@ export default async function BlogPostPage({ params }: PageParams) {
 
   const isDraft =
     post.published_at === null &&
-    (post.publish_at === null || post.publish_at === "");
+    (!post.publish_at || post.publish_at === "");
 
   const isScheduledFuture =
-    post.published_at === null &&
-    post.publish_at &&
-    new Date(post.publish_at).getTime() > now;
+    post.publish_at && new Date(post.publish_at).getTime() > now;
 
   if (isDraft || isScheduledFuture) {
     return (
@@ -94,16 +89,25 @@ export default async function BlogPostPage({ params }: PageParams) {
     );
   }
 
-  const effectiveDate = (() => {
-    if (post.published_at) return String(post.published_at);
-    if (post.publish_at) return new Date(post.publish_at).toISOString();
-    return String(post.date);
+    const effectiveDate = (() => {
+    const raw = post.published_at || post.publish_at || post.date;
+    if (!raw) return null;
+
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+
+    return d.toISOString();
   })();
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
       <h1 className="text-4xl font-bold mb-2">{post.title}</h1>
-      <p className="text-gray-600 text-sm mb-2">{effectiveDate}</p>
+
+      {effectiveDate && (
+        <p className="text-gray-600 text-sm mb-2">
+          {new Date(effectiveDate).toLocaleDateString()}
+        </p>
+      )}
 
       {post.category && (
         <p className="text-gray-500 text-sm mb-3">

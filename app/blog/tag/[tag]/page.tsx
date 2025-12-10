@@ -5,22 +5,20 @@ import Link from "next/link";
 import { getAllPosts } from "@/lib/getPost";
 
 type PageParams = {
-  params: Promise<{ tag: string }>;
+  params: { tag: string }; // FIXED
 };
 
 export async function generateStaticParams() {
   const posts = await getAllPosts();
   const tags = Array.from(
-    new Set(
-      posts.flatMap((p) => (Array.isArray(p.tags) ? p.tags : []))
-    )
+    new Set(posts.flatMap((p) => (Array.isArray(p.tags) ? p.tags : [])))
   ) as string[];
 
   return tags.map((t) => ({ tag: t }));
 }
 
 export default async function TagPage({ params }: PageParams) {
-  const { tag } = await params; // Next 16 fix
+  const { tag } = params; // FIXED
   const now = Date.now();
   const all = await getAllPosts();
 
@@ -29,11 +27,7 @@ export default async function TagPage({ params }: PageParams) {
       if (p.published_at === null && p.publish_at) {
         const ts = new Date(p.publish_at).getTime();
         if (ts <= now) {
-          return {
-            ...p,
-            published_at: p.publish_at,
-            publish_at: null,
-          };
+          return { ...p, published_at: p.publish_at, publish_at: null };
         }
       }
       return p;
@@ -44,15 +38,14 @@ export default async function TagPage({ params }: PageParams) {
 
       const isDraft =
         p.published_at === null &&
-        (p.publish_at === null || p.publish_at === "");
+        (!p.publish_at || p.publish_at === "");
 
       const isScheduledFuture =
         p.published_at === null &&
         p.publish_at &&
         new Date(p.publish_at).getTime() > now;
 
-      if (isDraft || isScheduledFuture) return false;
-      return true;
+      return !isDraft && !isScheduledFuture;
     });
 
   return (

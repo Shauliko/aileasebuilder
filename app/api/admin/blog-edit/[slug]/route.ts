@@ -15,7 +15,7 @@ function isValidSlug(slug: string) {
 // --------------------------------------------
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { slug: string } }
 ) {
   try {
     const { userId } = await auth();
@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { slug } = await params;
+    const { slug } = params;
 
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
@@ -51,7 +51,7 @@ export async function GET(
 // --------------------------------------------
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: { slug: string } }
 ) {
   try {
     const { userId } = await auth();
@@ -59,7 +59,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { slug } = await params;
+    const { slug } = params;
 
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });

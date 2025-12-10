@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getAllPosts } from "@/lib/getPost";
 
 type PageParams = {
-  params: Promise<{ category: string }>;
+  params: { category: string }; // FIXED
 };
 
 export async function generateStaticParams() {
@@ -18,7 +18,7 @@ export async function generateStaticParams() {
 }
 
 export default async function CategoryPage({ params }: PageParams) {
-  const { category } = await params; // ← REQUIRED FIX
+  const { category } = params; // FIXED
   const now = Date.now();
   const all = await getAllPosts();
 
@@ -27,11 +27,7 @@ export default async function CategoryPage({ params }: PageParams) {
       if (p.published_at === null && p.publish_at) {
         const ts = new Date(p.publish_at).getTime();
         if (ts <= now) {
-          return {
-            ...p,
-            published_at: p.publish_at,
-            publish_at: null,
-          };
+          return { ...p, published_at: p.publish_at, publish_at: null };
         }
       }
       return p;
@@ -40,22 +36,19 @@ export default async function CategoryPage({ params }: PageParams) {
     .filter((p) => {
       const isDraft =
         p.published_at === null &&
-        (p.publish_at === null || p.publish_at === "");
+        (!p.publish_at || p.publish_at === "");
 
       const isScheduledFuture =
         p.published_at === null &&
         p.publish_at &&
         new Date(p.publish_at).getTime() > now;
 
-      if (isDraft || isScheduledFuture) return false;
-      return true;
+      return !isDraft && !isScheduledFuture;
     });
 
   return (
     <main className="max-w-3xl mx-auto py-16 px-4">
-      <h1 className="text-4xl font-bold mb-8">
-        Category: {category}
-      </h1>
+      <h1 className="text-4xl font-bold mb-8">Category: {category}</h1>
 
       {posts.length === 0 && (
         <p className="text-gray-400">No posts in this category yet.</p>
