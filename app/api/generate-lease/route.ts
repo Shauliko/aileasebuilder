@@ -269,30 +269,201 @@ export async function POST(req: Request) {
     // ==========================================================
     // STEP 1 — MAIN LEASE (Claude)
     // ==========================================================
+            // ==========================================================
+    // STEP 1 — MAIN LEASE (Claude)
+    // ==========================================================
     const mainPrompt = `
-You are an expert U.S. real estate attorney. Generate a complete residential lease agreement.
+    You are an expert U.S. landlord-tenant attorney. Draft a professional, state-compliant RESIDENTIAL LEASE AGREEMENT in clean markdown that will be converted directly to PDF.
 
-STATE SELECTED: ${body.state || body.propertyState}
+    OBJECTIVE (CONDENSED, BUT PREMIUM):
+    - Output a clear, modern lease that feels like a lawyer-drafted form.
+    - Use strong headings, numbered sections, and tight bullet lists.
+    - Keep it readable and practical (roughly 8–14 PDF pages when rendered), NOT a bloated 25-page monster.
 
-MANDATORY COMPLIANCE:
-- Governing Law: ${compliance.landlordTenantAct}
-- Required Disclosures: ${compliance.disclosures.join(", ") || "None"}
-- Habitability Rules: ${compliance.habitability.join(", ") || "None"}
-- Addendums Required: ${compliance.addendums.join(", ") || "None"}
-- Forbidden Clauses: ${compliance.forbiddenClauses.join(", ") || "None"}
+    STATE SELECTED: ${body.state || body.propertyState}
 
-STRICT RULES:
-- Output ONLY valid JSON (no markdown fences).
-- Must include:
-  "lease_markdown": "...",
-  "addendums_markdown": [],
-  "checklist_markdown": "..."
+    MANDATORY COMPLIANCE (THIS CONTROLS EVERYTHING):
+    - Governing Law: ${compliance.landlordTenantAct}
+    - Required Disclosures: ${compliance.disclosures.join(", ") || "None"}
+    - Habitability Rules: ${compliance.habitability.join(", ") || "None"}
+    - Required Addendums: ${compliance.addendums.join(", ") || "None"}
+    - Forbidden Clauses (DO NOT INCLUDE): ${compliance.forbiddenClauses.join(", ") || "None"}
 
-Word count target: 1500–3500 words.
+    OVERALL FORMATTING RULES (VERY IMPORTANT):
+    - Use markdown headings with clear numbering. EXACTLY this pattern:
+      - \`# RESIDENTIAL LEASE AGREEMENT\`
+      - \`## 1. PARTIES\`
+      - \`## 2. PROPERTY & LEASE TERM\`
+      - \`## 3. RENT & FINANCIAL TERMS\`
+      - \`## 4. UTILITIES & SERVICES\`
+      - \`## 5. USE OF PREMISES\`
+      - \`## 6. PETS\`
+      - \`## 7. SMOKING POLICY\`
+      - \`## 8. MAINTENANCE & REPAIRS\`
+      - \`## 9. ALTERATIONS & IMPROVEMENTS\`
+      - \`## 10. ENTRY & INSPECTION\`
+      - \`## 11. ASSIGNMENT & SUBLETTING\`
+      - \`## 12. INSURANCE & LIABILITY\`
+      - \`## 13. RULES & COMMUNITY STANDARDS\`
+      - \`## 14. DEFAULT & REMEDIES\`
+      - \`## 15. EARLY TERMINATION\`
+      - \`## 16. LEASE RENEWAL\`
+      - \`## 17. DISCLOSURES\`
+      - \`## 18. GENERAL PROVISIONS\`
+      - \`## 19. MOVE-IN & MOVE-OUT\`
+      - \`## 20. SPECIAL PROVISIONS\`
+      - \`## 21. ACKNOWLEDGMENTS\`
+      - \`## 22. SIGNATURES\`
+      - \`## 23. ATTACHMENTS & EXHIBITS\`
+    - Use short paragraphs and bullet lists, not long walls of text.
+    - Use a blank line between paragraphs and bullet groups so the PDF has clear spacing.
+    - NO page numbers, NO headers/footers, NO "Page X of Y".
 
-INPUT:
-${JSON.stringify(body, null, 2)}
-`;
+    SECTION CONTENT REQUIREMENTS (MATCH THE UPGRADED LEASE STYLE, BUT CONDENSED):
+
+    1) TITLE + INTRO
+    - At the very top: \`# RESIDENTIAL LEASE AGREEMENT\`
+    - Directly under it: \`State of [STATE] – [County or City if known]\`
+    - Line for Agreement Date.
+
+    2) PARTIES
+    - Landlord block: name, address, phone, email.
+    - Tenant(s) block: list one or more tenants with name/phone/email.
+
+    3) PROPERTY & LEASE TERM
+    - Property address (street, unit, city, state, ZIP).
+    - Property type and key facts (bedrooms, bathrooms, square feet, parking spaces).
+    - Lease term: start date, end date, total months.
+    - One short paragraph about automatic month-to-month conversion unless written notice is given.
+
+    4) RENT & FINANCIAL TERMS
+    - Bullet list for:
+      - Monthly rent, currency, due date.
+      - Grace period (days).
+      - Accepted payment methods.
+      - Late fee rules (use INPUT; if no late fees, say they are not charged).
+      - Returned/NSF fee.
+      - Security deposit amount + what it can be used for.
+      - Deadline and method for returning deposit, tied to state law.
+
+    5) UTILITIES & SERVICES
+    - Two bullet lists:
+      - "Tenant responsible for:" (electricity, gas, water, etc. based on INPUT or defaults).
+      - "Landlord responsible for:" (taxes, insurance on structure, major systems, etc.).
+    - One short warning that failure to maintain utilities can be a violation, subject to state law.
+
+    6) USE OF PREMISES
+    - Short bullet list for permitted use (private residential dwelling only, max occupants).
+    - Bullet list for prohibited uses (illegal activity, nuisance, commercial use without consent, etc.).
+    - Guest policy (max consecutive days and total days per year; use INPUT where available).
+
+    7) PETS
+    - If INPUT says no pets: clearly state NO PETS and the consequence of unauthorized animals.
+    - If pets allowed: clearly state pet deposit, monthly pet rent, max pets, behavior rules.
+    - Always include a short sentence about service/assistance animals being handled per law.
+
+    8) SMOKING POLICY
+    - Clearly state whether smoking is prohibited entirely or limited to designated areas.
+    - Short note on possible cleaning/damage charges and potential default.
+
+    9) MAINTENANCE & REPAIRS
+    - Split into:
+      - "Landlord responsibilities" (structure, systems, code compliance, habitability).
+      - "Tenant responsibilities" (cleanliness, minor upkeep, timely reporting).
+    - Summarize non-emergency vs emergency procedures, using INPUT emergency contact fields.
+
+    10) ALTERATIONS & IMPROVEMENTS
+    - Brief bullets for what Tenant cannot do without written consent.
+    - State that approved alterations may need restoration at move-out.
+
+    11) ENTRY & INSPECTION
+    - Bullet list for reasons landlord may enter.
+    - Notice timing consistent with state law (tie back to compliance object).
+    - Reasonable hours language and privacy expectations.
+
+    12) ASSIGNMENT & SUBLETTING
+    - No assignment or subletting without written consent.
+    - If allowed, original tenant stays fully liable.
+    - Unauthorized subletting = serious default.
+
+    13) INSURANCE & LIABILITY
+    - Clarify that landlord’s insurance covers building only.
+    - Strong recommendation for renter’s insurance.
+    - Liability waiver language that respects forbidden clauses (do NOT illegally waive mandatory rights).
+
+    14) RULES & COMMUNITY STANDARDS
+    - Parking rules (number of spaces, basic restrictions).
+    - Trash & recycling rules.
+    - Common area rules and guest behavior expectations.
+
+    15) DEFAULT & REMEDIES
+    - Concise bullet list of events of default.
+    - Short list of landlord remedies, tied to state notice requirements and eviction process.
+
+    16) EARLY TERMINATION
+    - If INPUT \`earlyTerminationAllowed\` is false: clearly say early termination is not permitted except as required by law.
+    - If true: describe the fee and conditions based on INPUT.
+    - Always mention any key state-law exceptions (military, domestic violence, uninhabitable conditions, etc.) from the compliance object.
+
+    17) LEASE RENEWAL
+    - Short explanation of renewal or month-to-month conversion.
+    - Notice required for rent increases and non-renewal.
+
+    18) DISCLOSURES
+    - Bullet list of all required disclosures for this state, using \`compliance.disclosures\`.
+    - Include short sentences for things like lead-based paint, mold, bed bugs, rent control, etc. where applicable.
+
+    19) GENERAL PROVISIONS
+    - Condensed, standard boilerplate: governing law, entire agreement, severability, waiver, notices, attorney’s fees, fair housing, time is of the essence, joint and several liability.
+
+    20) MOVE-IN & MOVE-OUT
+    - Bullets for move-in expectations (checklist, documenting condition).
+    - Bullets for move-out process (notice, inspection, cleaning, keys).
+    - Summary of how and when the security deposit is returned and what can be deducted.
+
+    21) SPECIAL PROVISIONS
+    - A short section with either:
+      - Extra negotiated terms based on INPUT, OR
+      - A placeholder line where landlord can write additional terms.
+
+    22) ACKNOWLEDGMENTS
+    - Short bullet list of what tenant acknowledges (read lease, had chance for legal advice, received disclosures, etc.).
+
+    23) SIGNATURES
+    - Simple lines for:
+      - Landlord signature, printed name, date.
+      - One or more Tenant signatures, printed names, dates.
+
+    24) ATTACHMENTS & EXHIBITS
+    - Bullet list like:
+      - Move-in/move-out condition checklist.
+      - Pet agreement (if pets allowed).
+      - Lead-based paint disclosure (if applicable).
+      - HOA rules (if applicable).
+      - Any other state-required or property-specific addendums.
+
+    STRICT OUTPUT FORMAT (CRITICAL):
+    - Output ONLY valid JSON (no backticks, no markdown fences, no extra commentary).
+    - JSON MUST include:
+      "lease_markdown": "<FULL lease in markdown using the sections above>",
+      "addendums_markdown": ["<optional extra addendums in markdown, or leave empty>"],
+      "checklist_markdown": "<separate, concise move-in/move-out checklist in markdown>"
+    - Word count target for \`lease_markdown\`: roughly 1800–2800 words (condensed but complete).
+    - Markdown MUST be clean: headings, short paragraphs, and bullet lists that render nicely to PDF.
+    - Do NOT repeat the raw INPUT JSON inside the lease.
+    DATE REQUIREMENTS:
+    - You MUST use the provided lease start date exactly as given by the user:
+        Start Date: ${body.startDate}
+    - Never use today's date or the current year.
+    - Never invent or assume dates.
+    - The lease effective date MUST match the user-provided start date.
+
+
+    INPUT DATA (USE THIS TO FILL IN ALL PRACTICAL DETAILS; DO NOT ECHO THE RAW JSON):
+    ${JSON.stringify(body, null, 2)}
+    `;
+
+
 
     const english = await client.messages.create({
       // use the latest Claude Sonnet; if this 404s, fall back to 20240620

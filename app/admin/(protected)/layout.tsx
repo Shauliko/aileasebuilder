@@ -31,6 +31,7 @@ export default async function AdminLayout({
         <NavSection title="Management" icon="⚙️">
           <NavItem href="/admin/settings" icon="⚙️" label="Settings" />
           <NavItem href="/admin/users" icon="👥" label="Users" />
+          <NavItem href="/admin/generate-lease" icon="📄" label="Generate Lease" />
         </NavSection>
 
         {/* BACK TO SITE */}

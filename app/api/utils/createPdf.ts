@@ -8,35 +8,55 @@ function sanitizeForPdf(text: string): string {
     .replace(/☐/g, "[ ]")
     .replace(/✓/g, "[x]")
     .replace(/✔/g, "[x]")
-    .replace(/[•–—]/g, "-") 
-    .replace(/[^\x00-\x7F]/g, ""); // strip remaining unicode
+    .replace(/[•–—]/g, "-")
+    .replace(/[^\x00-\x7F]/g, "");
 }
 
-/** Split HTML into structured text blocks */
+/**
+ * Convert HTML → text blocks with structure
+ * Matches EXACT behavior of public lease PDF generator
+ */
 function parseHtml(html: string) {
   const cleaned = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/h[1-6]>/gi, "\n\n")
-    .replace(/<li>/gi, "• ")
+    .replace(/<li>/gi, "- ")
     .replace(/<\/li>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .trim();
 
   const lines = cleaned.split(/\n+/);
+
   const blocks: Array<{ type: "heading" | "paragraph" | "bullet"; text: string }> = [];
 
   for (let raw of lines) {
     const text = raw.trim();
     if (!text) continue;
 
-    if (/^\d+\./.test(text) || /^[A-Z ]{5,}$/.test(text)) {
-      blocks.push({ type: "heading", text });
-    } else if (text.startsWith("•")) {
-      blocks.push({ type: "bullet", text: text.slice(1).trim() });
-    } else {
-      blocks.push({ type: "paragraph", text });
+    // MATCH PUBLIC GENERATOR HEADING RULES EXACTLY
+    if (
+      text.startsWith("# ") ||
+      text.startsWith("## ") ||
+      /^[A-Z][A-Z0-9 ,.'()/-]{3,}$/.test(text)
+    ) {
+      blocks.push({
+        type: "heading",
+        text: text.replace(/^#+\s*/, "") // remove markdown "# "
+      });
+      continue;
     }
+
+    // MATCH PUBLIC GENERATOR BULLET RULES
+    if (text.startsWith("- ") || text.startsWith("* ") || text.startsWith("• ")) {
+      blocks.push({
+        type: "bullet",
+        text: text.replace(/^[-*•]\s*/, "")
+      });
+      continue;
+    }
+
+    blocks.push({ type: "paragraph", text });
   }
 
   return blocks;
@@ -45,17 +65,16 @@ function parseHtml(html: string) {
 export async function createPdfFromHtml(html: string): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
 
-  // Fonts
+  // PUBLIC GENERATOR FONT RULES
   const fontRegular = await pdfDoc.embedFont(StandardFonts.TimesRoman);
   const fontBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
 
-  // Layout settings
-  const margin = 72; // 1 inch margins
+  // PUBLIC GENERATOR SPACING + TYPOGRAPHY
+  const margin = 72; // 1 inch
   const fontSize = 12;
-  const lineHeight = 16;
-  const headingSize = 16;
-  const headingSpacing = 26;
-  const bulletIndent = 20;
+  const lineHeight = 18;
+  const headingSize = 18;
+  const headingSpacing = 32;
 
   let page = pdfDoc.addPage();
   let { width, height } = page.getSize();
@@ -74,7 +93,9 @@ export async function createPdfFromHtml(html: string): Promise<Buffer> {
     if (cursorY - needed < margin) newPage();
   };
 
-  /** Draw centered footer page numbers */
+  /**
+   * Public generator footer
+   */
   const drawPageNumbers = () => {
     const total = pages.length;
     pages.forEach((p, i) => {
@@ -84,30 +105,32 @@ export async function createPdfFromHtml(html: string): Promise<Buffer> {
         y: margin / 2,
         size: 10,
         font: fontRegular,
-        color: rgb(0.3, 0.3, 0.3),
+        color: rgb(0.4, 0.4, 0.4),
       });
     });
   };
 
-  /** Draw title page */
+  /**
+   * TITLE — Matches main generator
+   */
   const drawTitlePage = () => {
     const title = "RESIDENTIAL LEASE AGREEMENT";
-    const safeTitle = sanitizeForPdf(title);
-
-    page.drawText(safeTitle, {
-      x: width / 2 - fontBold.widthOfTextAtSize(safeTitle, 26) / 2,
-      y: height / 2 + 100,
+    page.drawText(title, {
+      x: margin,
+      y: height - margin - 40,
       font: fontBold,
-      size: 26,
+      size: 24,
     });
 
-    cursorY = height / 2;
+    cursorY = height - margin - 80;
     newPage();
   };
 
   drawTitlePage();
 
-  /** Draw headings */
+  /**
+   * Draw heading EXACTLY like public generator
+   */
   const drawHeading = (text: string) => {
     ensureSpace(headingSpacing);
     const safe = sanitizeForPdf(text);
@@ -120,7 +143,9 @@ export async function createPdfFromHtml(html: string): Promise<Buffer> {
     cursorY -= headingSpacing;
   };
 
-  /** Draw wrapped paragraphs */
+  /**
+   * Draw paragraphs identical to public generator behavior
+   */
   const drawParagraph = (text: string, indent = 0) => {
     const safe = sanitizeForPdf(text);
     const words = safe.split(/\s+/);
@@ -157,19 +182,22 @@ export async function createPdfFromHtml(html: string): Promise<Buffer> {
     }
   };
 
-  // Convert html → blocks
+  /**
+   * PARSE → DRAW
+   * Produces identical output to public generator
+   */
   const blocks = parseHtml(html);
 
-  // Render the main content
   for (const block of blocks) {
     if (block.type === "heading") drawHeading(block.text);
-    else if (block.type === "bullet") drawParagraph("- " + block.text, bulletIndent);
+    else if (block.type === "bullet") drawParagraph(block.text, 20);
     else drawParagraph(block.text);
   }
 
-  /** Signature Section */
+  /**
+   * SIGNATURE SECTION — identical across both generators
+   */
   drawHeading("SIGNATURES");
-
   drawParagraph("Landlord Signature: ________________________________");
   drawParagraph("Printed Name: ______________________________________");
   drawParagraph("Date: ______________________________________________");
@@ -180,25 +208,11 @@ export async function createPdfFromHtml(html: string): Promise<Buffer> {
   drawParagraph("Printed Name: ______________________________________");
   drawParagraph("Date: ______________________________________________");
 
-  /** Exhibits */
-  newPage();
-  drawHeading("EXHIBIT A – MOVE-IN / MOVE-OUT CONDITION CHECKLIST");
-  drawParagraph("This checklist must be completed at the start and end of the tenancy.");
-  drawParagraph("[ ] Walls");
-  drawParagraph("[ ] Floors");
-  drawParagraph("[ ] Appliances");
-  drawParagraph("[ ] Electrical");
-  drawParagraph("[ ] Plumbing");
+  /**
+   * No forced exhibits.
+   * Exhibits will only appear if markdown includes them — identical to public generator.
+   */
 
-  newPage();
-  drawHeading("EXHIBIT B – PET AGREEMENT");
-  drawParagraph("Tenant agrees to comply with all pet rules and responsibilities...");
-
-  newPage();
-  drawHeading("EXHIBIT C – LEAD-BASED PAINT DISCLOSURE");
-  drawParagraph("Required for any property built before 1978.");
-
-  // Footer page numbers
   drawPageNumbers();
 
   const pdfBytes = await pdfDoc.save();
