@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { trackEventClient } from "@/lib/analytics/posthog";
+import Script from "next/script";
 
 type LeaseResult = {
   success: boolean;
@@ -146,6 +147,14 @@ function PaymentSuccessPageInner() {
         setLease(leaseJson);
         setStatus("done");
         
+        // ---- GOOGLE ADS CONVERSION TRACKING ----
+        if (typeof window !== 'undefined' && (window as any).gtag) {
+          (window as any).gtag('event', 'conversion', {
+            'send_to': 'AW-17780439036/fLKoCK6vwNAbEPzvr55C',
+            'transaction_id': sessionId || ''
+          });
+        }
+
         // ---- POSTHOG ANALYTICS (client) ----
         trackEventClient("payment_success_and_lease_generated", {
           amount: 8,
