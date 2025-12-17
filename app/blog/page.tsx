@@ -2,8 +2,16 @@ export const revalidate = 10;
 
 import Link from "next/link";
 import { getAllPosts } from "@/lib/getPost";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/blog",
+  },
+};
 
 export default async function BlogPage() {
+
   const now = Date.now();
   const all = await getAllPosts();
 

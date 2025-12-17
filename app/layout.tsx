@@ -72,13 +72,6 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/icon-192.png",
   },
-  alternates: {
-    canonical: "https://aileasebuilder.com",
-    languages: {
-      "en-US": "https://aileasebuilder.com",
-      "x-default": "https://aileasebuilder.com",
-    },
-  },
 };
 
 export default function RootLayout({

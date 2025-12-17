@@ -1,21 +1,65 @@
 // app/sitemap.ts
+import { MetadataRoute } from "next";
 
-export default async function sitemap() {
+export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://aileasebuilder.com";
 
   return [
-    { url: `${baseUrl}/`, lastModified: new Date() },
-    { url: `${baseUrl}/pricing`, lastModified: new Date() },
-    { url: `${baseUrl}/faq`, lastModified: new Date() },
-    { url: `${baseUrl}/generate-lease`, lastModified: new Date() },
-    { url: `${baseUrl}/contact`, lastModified: new Date() },
-    { url: `${baseUrl}/about`, lastModified: new Date() },
-    { url: `${baseUrl}/download`, lastModified: new Date() },
-    { url: `${baseUrl}/payment-success`, lastModified: new Date() },
+    {
+      url: `${baseUrl}/`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 1,
+    },
+    {
+      url: `${baseUrl}/generate-lease`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/faq`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/about`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
+      url: `${baseUrl}/contact`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
 
-    // Legal
-    { url: `${baseUrl}/legal/privacy`, lastModified: new Date() },
-    { url: `${baseUrl}/legal/terms`, lastModified: new Date() },
-    { url: `${baseUrl}/legal/disclaimer`, lastModified: new Date() },
+    // Legal (low priority, still indexable)
+    {
+      url: `${baseUrl}/legal/privacy`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.1,
+    },
+    {
+      url: `${baseUrl}/legal/terms`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.1,
+    },
+    {
+      url: `${baseUrl}/legal/disclaimer`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.1,
+    },
   ];
 }
