@@ -153,12 +153,27 @@ export default function PreviewPage() {
       const stored = sessionStorage.getItem("lease-result");
       const parsed = stored ? JSON.parse(stored) : {};
 
+      // Strip generated files — Stripe metadata has a 500 char limit per value.
+      // Only send the original form fields that were used to generate the lease.
+      const {
+        lease_markdown,
+        lease_html,
+        lease_pdf_base64,
+        lease_docx_base64,
+        checklist_markdown,
+        translated,
+        files,
+        success,
+        isPrivilegedUser,
+        ...formData
+      } = parsed;
+
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          leaseData: parsed,
-          email: parsed.userEmail || null,
+          leaseData: formData,
+          email: formData.userEmail || null,
           planType: "single",
           languages: [],
         }),
