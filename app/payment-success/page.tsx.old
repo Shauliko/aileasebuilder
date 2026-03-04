@@ -117,7 +117,7 @@ function PaymentSuccessPageInner() {
         const leaseBody = {
           ...(sessionJson.leaseData || {}),
           userEmail: sessionJson.email,
-          planType: sessionJson.planType || "single",
+          planType: sessionJson.planType || "payg",
           languages: sessionJson.languages || [],
         };
 
@@ -157,7 +157,7 @@ function PaymentSuccessPageInner() {
 
         // ---- POSTHOG ANALYTICS (client) ----
         trackEventClient("payment_success_and_lease_generated", {
-          amount: 14.95,
+          amount: 8,
           email: sessionJson.email || "unknown",
           languages: leaseJson.languages,
           planType: leaseJson.planType,

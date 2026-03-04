@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { OPTIONAL_CLAUSES } from "@/lib/optionalClauses";
 import { useUser } from "@clerk/nextjs";
 import Script from "next/script";
 
@@ -127,7 +128,16 @@ export default function GenerateLeasePage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [hasUsedFreeLease, setHasUsedFreeLease] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ----------------------------
+  // Check if user used free lease
+  // ----------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setHasUsedFreeLease(localStorage.getItem("hasUsedFreeLease") === "true");
+  }, []);
 
   // ----------------------------
   // Handle simple field updates
@@ -189,14 +199,50 @@ export default function GenerateLeasePage() {
     setError(null);
     console.log("DEBUG FORM BEFORE SUBMIT:", form);
 
-    // Minimal required validation
+    // Minimal required validation (same core checks)
     if (!form.state || !form.propertyType || !form.rent || !form.term) {
       setError("Please fill out all required fields marked with *.");
       return;
     }
 
+    const isMultilingual =
+      form.includeMultilingual && form.languages.length > 0;
+
     try {
       setLoading(true);
+
+      // Multilingual → Stripe
+      if (isMultilingual) {
+        const res = await fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            leaseData: form,
+            email: userEmail,
+            planType: "payg",
+            languages: form.languages,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+
+        setError("Unable to start payment. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // English-only free lease
+      if (hasUsedFreeLease) {
+        setError("You’ve already used your free English lease.");
+        setTimeout(() => router.push("/pricing"), 1300);
+        setLoading(false);
+        return;
+      }
 
       const genRes = await fetch("/api/generate-lease", {
         method: "POST",
@@ -204,7 +250,6 @@ export default function GenerateLeasePage() {
         body: JSON.stringify({
           ...form,
           userEmail,
-          planType: "preview",
         }),
       });
 
@@ -217,10 +262,11 @@ export default function GenerateLeasePage() {
       }
 
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("lease-result", JSON.stringify(genData));
+        localStorage.setItem("lease-result", JSON.stringify(genData));
+        localStorage.setItem("hasUsedFreeLease", "true");
       }
 
-      router.push("/preview");
+      router.push("/download");
     } catch (err) {
       console.error(err);
       setError("Unexpected error. Please try again.");
@@ -251,7 +297,7 @@ export default function GenerateLeasePage() {
             "@type": "Service",
             name: "AI Lease Generator",
             description:
-              "Generate a legally-compliant, state-specific residential lease instantly. Preview your lease free, then unlock the full document for $14.95.",
+              "Generate a legally-compliant, state-specific residential lease instantly. Your first English lease is free; multilingual versions cost $8.",
             provider: {
               "@type": "Organization",
               name: "AI Lease Builder",
@@ -259,10 +305,10 @@ export default function GenerateLeasePage() {
             },
             offers: {
               "@type": "Offer",
-              price: "14.95",
+              price: "0.00",
               priceCurrency: "USD",
               description:
-                "Preview your lease free. Unlock the full document for $14.95.",
+                "First English lease is free. Multilingual leases cost $8.",
             },
           }),
         }}
@@ -274,7 +320,8 @@ export default function GenerateLeasePage() {
             Generate your lease
           </h1>
           <p className="text-gray-300">
-            Preview your lease instantly for free. Unlock the full document for $14.95.
+            Your first English-only lease is free. Multilingual leases cost $8
+            and include all selected languages.
           </p>
         </header>
 
@@ -735,8 +782,7 @@ function Step4ContactsLanguages({
         <p className="mb-1">
           When you click <span className="font-semibold">Generate Lease</span>,
           we send these answers to our AI lease engine, generate a full
-          state-compliant lease, and prepare a preview for you to review before
-          purchasing the full document.
+          state-compliant lease, and prepare downloadable PDF and DOCX files.
         </p>
       </div>
     </section>
@@ -826,7 +872,7 @@ function MultilingualSelector({
           className="h-4 w-4 rounded border-white/40 bg-transparent"
         />
         <span className="text-sm font-medium">
-          Include multilingual versions (add-on after purchase)
+          Include multilingual versions (requires $8 payment)
         </span>
       </label>
 

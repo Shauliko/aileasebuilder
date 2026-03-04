@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // ---------------- ENV LOADING ----------------
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
-const priceId = process.env.STRIPE_PRICE_SINGLE || "";
+const priceId = process.env.STRIPE_PRICE_PAYG || "";
 const domain =
   process.env.NEXT_PUBLIC_DOMAIN || "https://aileasebuilder.com";
 
@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (!priceId) {
-      console.error("[CHECKOUT] Missing STRIPE_PRICE_SINGLE at runtime");
+      console.error("[CHECKOUT] Missing STRIPE_PRICE_PAYG at runtime");
       return NextResponse.json(
-        { error: "Server misconfigured: STRIPE_PRICE_SINGLE missing" },
+        { error: "Server misconfigured: STRIPE_PRICE_PAYG missing" },
         { status: 500 }
       );
     }
@@ -68,18 +68,18 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId, // $14.95 single lease
+          price: priceId, // $8 product (test price)
           quantity: 1,
         },
       ],
       success_url: `${domain}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${domain}/preview`,
+      cancel_url: `${domain}/generate-lease`,
       metadata: {
         leaseData: JSON.stringify(leaseData),
         languages: JSON.stringify(body.languages || []),
-        planType: body.planType || "single",
+        planType: body.planType || "payg",
         email: body.email || "",
-        type: "single",
+        type: "payg",
       },
 
     });
@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
         body.email || "unknown",
         {
           languages: body.languages || [],
-          planType: body.planType || "single",
-          amount: 14.95,
+          planType: body.planType || "payg",
+          amount: 8,
           timestamp: Date.now(),
         }
       );

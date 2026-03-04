@@ -1,12 +1,9 @@
 "use client";
 
 import Script from "next/script";
-import { useRouter } from "next/navigation";
 import StripePricingTable from "./StripePricingTable";
 
 export default function PricingPage() {
-  const router = useRouter();
-
   return (
     <>
       {/* JSON-LD Structured Data */}
@@ -19,10 +16,10 @@ export default function PricingPage() {
             "@type": "Product",
             name: "AI Lease Builder",
             description:
-              "Generate state-specific, lawyer-grade residential leases instantly. Preview your lease free, then unlock the full document for $14.95.",
+              "Generate state-specific, lawyer-grade residential leases instantly. Your first English lease is free. Additional leases cost $8.",
             offers: {
               "@type": "Offer",
-              price: "14.95",
+              price: "8.00",
               priceCurrency: "USD",
               url: "https://aileasebuilder.com/pricing",
               availability: "https://schema.org/InStock",
@@ -37,11 +34,11 @@ export default function PricingPage() {
         </h1>
 
         <p className="text-gray-300 text-center mb-12 max-w-2xl mx-auto">
-          Generate your lease and{" "}
-          <span className="text-white font-semibold">preview it instantly for free</span>.
-          Unlock the full state-compliant document—PDF and Word—for just{" "}
-          <span className="text-white font-semibold">$14.95</span>.
-          No subscriptions. No hidden fees. Only pay when you need a lease.{" "}
+          Generate your{" "}
+          <span className="text-white font-semibold">first English lease for free</span>.  
+          Every additional, full state-compliant lease—English or multilingual—
+          costs just <span className="text-white font-semibold">$8</span>.
+          No subscriptions. No hidden fees. Only pay when you need a new lease.{" "}
           <a
             href="/generate-lease"
             className="text-cyan-300 hover:underline underline-offset-2"
@@ -50,19 +47,39 @@ export default function PricingPage() {
           </a>.
         </p>
 
-        {/* CTA */}
+        {/* One-time $8 purchase CTA */}
         <div className="max-w-md mx-auto mt-14 text-center">
           <button
-            onClick={() => router.push("/generate-lease")}
+            onClick={async () => {
+              const res = await fetch("/api/create-checkout-session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  leaseData: {},     // Empty: user fills form after payment
+                  planType: "payg",
+                  languages: [],     // No languages selected here; user picks later
+                  email: "",         // Stripe will collect
+                }),
+              });
+
+              const data = await res.json();
+              if (data?.url) {
+                window.location.href = data.url;
+              } else {
+                alert("Unable to start checkout. Please try again.");
+              }
+            }}
             className="px-8 py-4 rounded-full bg-cyan-600 hover:bg-cyan-500 text-black font-semibold text-lg shadow-lg transition"
           >
-            Generate My Lease — Free Preview
+            Purchase a Lease – $8
           </button>
 
           <p className="text-gray-400 text-sm mt-4">
-            One-time payment of $14.95 to unlock. No subscriptions. Instant download after payment.
+            One-time payment. No subscriptions.  
+            Your free English lease remains available anytime.
           </p>
         </div>
+
 
         <p className="text-gray-400 text-center mt-10 text-sm max-w-xl mx-auto">
           AI Lease Builder creates legally-structured residential leases tailored to your property type,
