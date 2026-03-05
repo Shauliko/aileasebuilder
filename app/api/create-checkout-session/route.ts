@@ -63,6 +63,15 @@ export async function POST(req: NextRequest) {
       pricePrefix: priceId.slice(0, 10),
     });
 
+    // Split leaseData across multiple metadata keys to stay under Stripe's
+    // 500-char-per-value limit. We chunk the JSON string into 490-char pieces.
+    const leaseDataStr = JSON.stringify(leaseData);
+    const chunkSize = 490;
+    const chunks: Record<string, string> = {};
+    for (let i = 0; i * chunkSize < leaseDataStr.length; i++) {
+      chunks[`leaseData_${i}`] = leaseDataStr.slice(i * chunkSize, (i + 1) * chunkSize);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -75,7 +84,7 @@ export async function POST(req: NextRequest) {
       success_url: `${domain}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${domain}/preview`,
       metadata: {
-        leaseData: JSON.stringify(leaseData),
+        ...chunks,
         languages: JSON.stringify(body.languages || []),
         planType: body.planType || "single",
         email: body.email || "",

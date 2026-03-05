@@ -48,8 +48,22 @@ export async function POST(req: Request) {
     let metaEmail: string | null = null;
 
     if (session.metadata) {
-      // Lease form JSON
-      if (session.metadata.leaseData) {
+      // Lease form JSON — reassemble from chunks (leaseData_0, leaseData_1, ...)
+      // This handles the case where leaseData was split to stay under Stripe's
+      // 500-char-per-value metadata limit.
+      const chunkKeys = Object.keys(session.metadata)
+        .filter((k) => k.startsWith("leaseData_"))
+        .sort();
+
+      if (chunkKeys.length > 0) {
+        try {
+          const reassembled = chunkKeys.map((k) => session.metadata![k]).join("");
+          leaseData = JSON.parse(reassembled);
+        } catch (err) {
+          console.warn("[get-session] Failed to reassemble leaseData chunks");
+        }
+      } else if (session.metadata.leaseData) {
+        // Fallback: legacy single-key format
         try {
           leaseData = JSON.parse(session.metadata.leaseData);
         } catch (err) {
