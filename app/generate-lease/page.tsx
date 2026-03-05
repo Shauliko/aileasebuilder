@@ -217,7 +217,10 @@ export default function GenerateLeasePage() {
       }
 
       if (typeof window !== "undefined") {
+        // Store the full lease result for the preview page
         sessionStorage.setItem("lease-result", JSON.stringify(genData));
+        // Store only the clean form data for Stripe checkout (no base64 blobs)
+        sessionStorage.setItem("lease-form", JSON.stringify({ ...form, userEmail }));
       }
 
       router.push("/preview");

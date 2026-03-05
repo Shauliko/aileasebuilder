@@ -150,23 +150,9 @@ export default function PreviewPage() {
       setCheckoutLoading(true);
 
       // Retrieve original form data stored alongside lease result
-      const stored = sessionStorage.getItem("lease-result");
-      const parsed = stored ? JSON.parse(stored) : {};
-
-      // Strip generated files — Stripe metadata has a 500 char limit per value.
-      // Only send the original form fields that were used to generate the lease.
-      const {
-        lease_markdown,
-        lease_html,
-        lease_pdf_base64,
-        lease_docx_base64,
-        checklist_markdown,
-        translated,
-        files,
-        success,
-        isPrivilegedUser,
-        ...formData
-      } = parsed;
+      // Read the original form data (stored separately at generation time)
+      const storedForm = sessionStorage.getItem("lease-form");
+      const formData = storedForm ? JSON.parse(storedForm) : {};
 
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
